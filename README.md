@@ -77,7 +77,7 @@ cd lithos
 cargo install --path lithos
 ```
 
-You'll need Rust 1.79 or newer.
+You'll need Rust 1.85 or newer.
 
 ## Quick start
 
