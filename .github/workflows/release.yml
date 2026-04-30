@@ -1,0 +1,122 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.85.0
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-release-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Build release binary
+        run: cargo build --verbose --locked --release
+      - name: Zip binary
+        uses: thedoctor0/zip-release@0.6.0
+        with:
+          filename: lithos-win64.zip
+          path: target/release/lithos.exe
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lithos-win64
+          path: lithos-win64.zip
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.85.0
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-release-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Install rust
+        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - name: Build release binary
+        run: |
+          source $HOME/.cargo/env
+          cargo build --verbose --locked --release
+        env:
+          OPENSSL_STATIC: 1
+      - name: Zip binary
+        uses: thedoctor0/zip-release@0.6.0
+        with:
+          filename: lithos-macos.zip
+          path: target/release/lithos
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lithos-macos
+          path: lithos-macos.zip
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.85.0
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-release-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Build release binary
+        run: cargo build --locked --verbose --release
+        env:
+          OPENSSL_STATIC: 1
+      - name: Zip binary
+        uses: thedoctor0/zip-release@0.6.0
+        with:
+          filename: lithos-linux.zip
+          path: target/release/lithos
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: lithos-linux
+          path: lithos-linux.zip
+      - name: Generate schema
+        run: cargo run --release --bin gen_schema > schema.json
+      - name: Upload schema artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: schema
+          path: schema.json
+  release:
+    runs-on: ubuntu-latest
+    needs: [windows, macos, linux]
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          # TODO: remove and add body_path once we have an automated release notes generator
+          draft: true
+          files: artifacts/*/*

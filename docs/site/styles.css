@@ -1,0 +1,385 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --lithos-bg: #f7f7f5;
+  --lithos-bg-elev: #ffffff;
+  --lithos-fg: #0f172a;
+  --lithos-muted: #64748b;
+  --lithos-border: rgba(15, 23, 42, 0.08);
+  --lithos-accent: #10b981;
+  --lithos-accent-2: #06b6d4;
+  --lithos-grid: rgba(15, 23, 42, 0.05);
+  --lithos-glow: rgba(16, 185, 129, 0.18);
+}
+
+.dark {
+  --lithos-bg: #0a0f14;
+  --lithos-bg-elev: #0f1620;
+  --lithos-fg: #e6edf3;
+  --lithos-muted: #8b9aa8;
+  --lithos-border: rgba(229, 232, 235, 0.08);
+  --lithos-accent: #34d399;
+  --lithos-accent-2: #22d3ee;
+  --lithos-grid: rgba(229, 232, 235, 0.04);
+  --lithos-glow: rgba(52, 211, 153, 0.16);
+}
+
+html,
+body {
+  background: var(--lithos-bg);
+  color: var(--lithos-fg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: radial-gradient(
+    var(--lithos-grid) 1px,
+    transparent 1px
+  );
+  background-size: 24px 24px;
+  mask-image: linear-gradient(to bottom, black 0%, transparent 90%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, transparent 90%);
+  pointer-events: none;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: -10% 0 auto 0;
+  height: 60vh;
+  z-index: -1;
+  background: radial-gradient(
+    ellipse 60% 50% at 50% 0%,
+    var(--lithos-glow) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--lithos-border);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--lithos-muted);
+}
+
+.nextra-nav-container {
+  background: color-mix(in srgb, var(--lithos-bg) 78%, transparent) !important;
+  backdrop-filter: saturate(140%) blur(14px);
+  -webkit-backdrop-filter: saturate(140%) blur(14px);
+}
+.nextra-nav-container .nextra-nav-container-blur {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid var(--lithos-border) !important;
+}
+
+:not(pre) > code {
+  background: color-mix(in srgb, var(--lithos-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lithos-accent) 22%, transparent);
+  color: color-mix(in srgb, var(--lithos-accent) 80%, var(--lithos-fg));
+  border-radius: 6px;
+  padding: 1px 6px !important;
+  font-size: 0.92em !important;
+}
+
+.nextra-code-block pre,
+pre {
+  background: var(--lithos-bg-elev) !important;
+  border: 1px solid var(--lithos-border) !important;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02), 0 8px 24px -16px rgba(0, 0, 0, 0.25);
+}
+
+.nextra-content h1,
+.nextra-content h2,
+.nextra-content h3 {
+  letter-spacing: -0.015em;
+}
+
+.lithos-gradient-text {
+  background: linear-gradient(
+    100deg,
+    var(--lithos-accent) 0%,
+    var(--lithos-accent-2) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.lithos-glass {
+  background: color-mix(in srgb, var(--lithos-bg-elev) 86%, transparent);
+  border: 1px solid var(--lithos-border);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+}
+
+.lithos-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--lithos-accent);
+  background: color-mix(in srgb, var(--lithos-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lithos-accent) 28%, transparent);
+}
+.lithos-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--lithos-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--lithos-accent) 28%, transparent);
+}
+
+.lithos-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: 0.7rem;
+  font-weight: 600;
+  background: linear-gradient(
+    135deg,
+    var(--lithos-accent),
+    var(--lithos-accent-2)
+  );
+  color: #04130d;
+  border: 1px solid color-mix(in srgb, var(--lithos-accent) 50%, transparent);
+  box-shadow: 0 10px 30px -10px var(--lithos-glow);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+.lithos-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 40px -12px var(--lithos-glow);
+}
+.lithos-cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: 0.7rem;
+  font-weight: 600;
+  color: var(--lithos-fg);
+  background: color-mix(in srgb, var(--lithos-bg-elev) 70%, transparent);
+  border: 1px solid var(--lithos-border);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.lithos-cta-secondary:hover {
+  border-color: color-mix(in srgb, var(--lithos-accent) 40%, var(--lithos-border));
+  background: color-mix(in srgb, var(--lithos-bg-elev) 90%, transparent);
+}
+
+/* === landing page extras === */
+
+/* === landing page extras === */
+
+.lithos-terminal {
+  position: relative;
+  border-radius: 1rem;
+  border: 1px solid var(--lithos-border);
+  background: var(--lithos-bg-elev);
+  overflow: hidden;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 30px 60px -30px rgba(0, 0, 0, 0.5),
+    0 0 0 1px color-mix(in srgb, var(--lithos-accent) 8%, transparent);
+}
+.lithos-terminal::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--lithos-accent) 60%, transparent),
+    transparent 40%,
+    color-mix(in srgb, var(--lithos-accent-2) 60%, transparent));
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.4;
+}
+.lithos-terminal-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.95rem;
+  border-bottom: 1px solid var(--lithos-border);
+  background: color-mix(in srgb, var(--lithos-bg) 55%, var(--lithos-bg-elev));
+}
+.lithos-terminal-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 9999px;
+  display: inline-block;
+}
+.lithos-terminal-title {
+  margin-left: auto;
+  margin-right: auto;
+  font-size: 0.78rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--lithos-muted);
+  letter-spacing: 0.02em;
+}
+.lithos-terminal pre {
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  padding: 1.1rem 1.25rem !important;
+  font-size: 0.86rem !important;
+  line-height: 1.55 !important;
+}
+
+.lithos-stat {
+  border: 1px solid var(--lithos-border);
+  border-radius: 1rem;
+  padding: 1.1rem 1.2rem;
+  background: color-mix(in srgb, var(--lithos-bg-elev) 80%, transparent);
+  position: relative;
+  overflow: hidden;
+}
+.lithos-stat::after {
+  content: '';
+  position: absolute;
+  inset: auto -30% -60% auto;
+  width: 160px;
+  height: 160px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, var(--lithos-glow) 0%, transparent 70%);
+  pointer-events: none;
+  opacity: 0.5;
+}
+.lithos-stat-num {
+  font-size: 2.1rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--lithos-accent), var(--lithos-accent-2));
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  line-height: 1;
+}
+.lithos-stat-label {
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--lithos-muted);
+}
+
+.lithos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.9rem;
+}
+@media (max-width: 1024px) {
+  .lithos-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .lithos-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.lithos-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--lithos-border);
+  border-radius: 1rem;
+  padding: 1.4rem 1.45rem;
+  background: color-mix(in srgb, var(--lithos-bg-elev) 86%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+.lithos-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--lithos-accent) 35%, var(--lithos-border));
+}
+.lithos-card-eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lithos-accent);
+  margin-bottom: 0.55rem;
+}
+.lithos-card-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.5rem;
+}
+.lithos-card-body {
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--lithos-muted);
+  margin: 0;
+}
+.lithos-card-link {
+  display: inline-block;
+  margin-top: 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--lithos-accent);
+}
+
+.lithos-split-card {
+  border: 1px solid var(--lithos-border);
+  border-radius: 1rem;
+  padding: 1.5rem 1.5rem 1.25rem;
+  background: color-mix(in srgb, var(--lithos-bg-elev) 86%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+}
+.lithos-split-card pre {
+  margin: 0 !important;
+  font-size: 0.8rem !important;
+  border-radius: 0.7rem !important;
+}
+
+.lithos-cta-card {
+  border-radius: 1.4rem;
+  padding: 2.2rem 2.4rem;
+  border: 1px solid color-mix(in srgb, var(--lithos-accent) 28%, var(--lithos-border));
+  background:
+    radial-gradient(ellipse 60% 100% at 0% 0%, color-mix(in srgb, var(--lithos-accent) 18%, transparent) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 100% at 100% 100%, color-mix(in srgb, var(--lithos-accent-2) 18%, transparent) 0%, transparent 60%),
+    color-mix(in srgb, var(--lithos-bg-elev) 85%, transparent);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  box-shadow: 0 30px 80px -40px var(--lithos-glow);
+}

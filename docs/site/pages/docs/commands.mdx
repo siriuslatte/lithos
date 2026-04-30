@@ -1,0 +1,183 @@
+import { Callout } from 'nextra-theme-docs';
+
+# CLI reference
+
+Every Lithos workflow is one of five subcommands. This page is the working
+reference; for the full machine-readable surface, run
+`lithos help [SUBCOMMAND]`.
+
+| Command | Purpose |
+| --- | --- |
+| [`deploy`](#deploy) | Reconcile state with config and apply the diff. |
+| [`diff`](#diff) | Print the diff without applying it. |
+| [`outputs`](#outputs) | Print the outputs (asset IDs, etc.) of the last deploy. |
+| [`destroy`](#destroy) | Remove every resource Lithos manages for an environment. |
+| [`import`](#import) | Adopt an existing experience into a Lithos project. |
+
+All commands accept a positional `PROJECT` argument. If omitted, Lithos
+looks for `lithos.yml` (then `mantle.yml`) in the current directory; if
+provided as a directory, Lithos looks inside it; if provided as a file,
+Lithos uses that file directly. See
+[Configuration → Config file resolution](/docs/configuration#config-file-resolution).
+
+## `deploy`
+
+```text
+$ lithos deploy [PROJECT] --environment <label> [flags]
+```
+
+The default workflow. `deploy` runs the pipeline described in
+**[The resource graph](/docs/concepts/resource-graph#how-a-deploy-unfolds)**:
+load config and state, reconcile state against the live Roblox API, build
+the desired graph, render a plan preview, prompt for confirmation, and
+apply the diff in dependency order.
+
+### Live reconciliation
+
+Before computing any diff, `deploy` asks Roblox to confirm that the
+resources persisted in state still exist. Each resource is classified as
+`verified`, `missing`, `skipped`, or `unknown`. Resources confirmed
+**missing** are dropped from the previous-state graph so the next plan
+re-creates them rather than producing a broken update against a deleted
+asset. Resources whose verification is **inconclusive** (permission denied,
+network error) are preserved unchanged so behavior degrades safely.
+
+Verified resource types: experiences, places, game passes, developer
+products. Sub-resources (configurations, thumbnails, ordering, place files,
+badges, image/audio assets, asset aliases, social links, spatial voice,
+notifications) are skipped intentionally — they have no cheap, authoritative
+existence endpoint, and their drift is implied by the verification of
+their parent.
+
+### Plan preview and confirmation
+
+Before any creates, updates, or deletes hit Roblox, `deploy` renders a
+**plan preview**: a color-coded, structured view of every operation,
+grouped by kind. Risky resources (developer products, game passes,
+badges) get field-level summaries — price, name, description — so you
+can confirm an "update" really is just a price change before approving
+it. Destructive operations on developer products, game passes, badges,
+notifications, experiences, and places are flagged with an explicit
+warning marker.
+
+When stdout is an interactive terminal, deploy prompts to confirm before
+applying. Press `y` or Enter to apply; anything else cancels. In
+non-interactive contexts (CI, piped output) deploy auto-approves after
+printing a plain summary, so existing scripts continue to work.
+
+### Useful flags
+
+| Flag | Effect |
+| --- | --- |
+| `--environment <label>` / `-e` | Required. Which environment block to apply. |
+| `--yes` / `-y` | Skip the confirmation prompt and apply immediately. |
+| `--no-preview` | Skip the preview entirely. Implies `--yes`. |
+| `--plain-preview` | Render a plain (non-colored) summary. Useful in CI log viewers without ANSI support. |
+| `--allow-purchases` | Allow paid-asset operations (developer products, etc.) without an extra confirm. |
+
+<Callout type="warning">
+  `--no-preview` is a footgun outside of well-tested pipelines. The
+  preview is the only thing standing between you and an unintended
+  delete.
+</Callout>
+
+## `diff`
+
+```text
+$ lithos diff [PROJECT] --environment <label> [--live]
+```
+
+Print the diff between persisted state and project configuration. Useful
+in pull-request CI to comment "what would this PR do?" without applying.
+
+By default `diff` is **offline** — it does not contact Roblox. Pass
+`--live` to run the same reconciliation pass that `deploy` runs, surface
+drift, and diff against the reconciled previous-state graph:
+
+```text
+$ lithos diff --environment dev --live
+```
+
+Use `--live` when you suspect drift; use plain `diff` when you just want
+to know what your YAML changes would do.
+
+## `outputs`
+
+```text
+$ lithos outputs [PROJECT] --environment <label>
+```
+
+Print the outputs of the last deploy as JSON. Use this when your game code
+needs an asset ID Lithos created — feed the JSON into a build step that
+templates IDs into your Lua source.
+
+After deploying the [getting-started example](https://github.com/siriuslatte/lithos/tree/main/examples/projects/getting-started),
+running `outputs` looks like:
+
+```json
+{
+  "experience_singleton": {
+    "experience": {
+      "assetId": 3296599132,
+      "startPlaceId": 8667346609
+    }
+  },
+  "place_start": {
+    "place": { "assetId": 8667346609 }
+  },
+  "placeFile_start": {
+    "placeFile": { "version": 2 }
+  }
+}
+```
+
+## `destroy`
+
+```text
+$ lithos destroy [PROJECT] --environment <label> [--yes]
+```
+
+Remove every resource Lithos manages for an environment. Lithos cannot
+hard-delete most Roblox asset types, so in practice this archives them
+and clears them from state.
+
+`destroy` is a `deploy` whose diff is "delete everything." It runs the
+same plan preview, the same confirmation prompt, and the same dependency
+ordering. Use the same flags.
+
+<Callout type="error">
+  `destroy` is irreversible from Lithos's point of view: state is wiped.
+  The Roblox-side assets are archived, not gone, but recovering them and
+  reattaching to a fresh state requires `import` (experimental).
+</Callout>
+
+## `import`
+
+```text
+$ lithos import [PROJECT] --environment <label> --target-id <experience-id>
+```
+
+Adopt an existing Roblox experience into a Lithos project. This is for the
+case where you already have a published experience and want to start
+managing it with Lithos.
+
+<Callout type="warning">
+  `import` is experimental. It does not match every existing resource to a
+  configured one — most resources will be re-created on the next deploy.
+  **Always test on a staging environment before importing a production
+  experience.**
+</Callout>
+
+A safer pattern: build a Lithos config that mirrors your production setup,
+deploy it as a `staging` environment to verify the diff is empty, and only
+then point `import` at production.
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| `0` | Success. Includes the case "nothing to do." |
+| `1` | A user-facing error. Bad config, auth failure, conflicting state, etc. The error message names the cause. |
+| `2` | An unexpected internal error. [File an issue](https://github.com/siriuslatte/lithos/issues) with the surrounding output. |
+
+In CI, treat any non-zero exit as fatal.

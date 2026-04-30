@@ -1,0 +1,142 @@
+﻿import { Callout } from 'nextra-theme-docs';
+
+# Continuous deployment
+
+The endgame for any infrastructure-as-code tool is "PR merges, deploy
+runs, done." This page sketches a minimal CI setup for Lithos using
+GitHub Actions. The same pattern applies to GitLab CI, Buildkite,
+CircleCI, Jenkins, etc.
+
+Two things make this setup robust:
+
+1. **Remote state.** With state in S3 or R2, every CI run sees the same
+   previous-state, regardless of which runner picked it up. Without remote
+   state, two runners can race and produce divergent state files.
+2. **Branch-gated environments.** A `prod` environment that only deploys
+   from `main` cannot be deployed by a pull request, no matter how the
+   workflow file is written.
+
+## Prerequisites
+
+- [Remote state](/docs/remote-state) configured for the project.
+- An Open Cloud API key with the right scopes — see
+  [Authentication](/docs/authentication).
+- A `ROBLOSECURITY` cookie with permission to manage the experiences
+  this project owns.
+- A `lithos.yml` whose `prod` environment has `branches: [main]`:
+
+  ```yaml filename="lithos.yml"
+  environments:
+    - label: dev
+      targetNamePrefix: environmentLabel
+      branches: [develop]
+    - label: prod
+      targetAccess: public
+      branches: [main]
+  ```
+
+## Secrets
+
+Add four repository secrets (Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+| --- | --- |
+| `ROBLOSECURITY` | Your Roblox cookie. |
+| `LITHOS_OPEN_CLOUD_API_KEY` | Your Open Cloud key. |
+| `LITHOS_AWS_ACCESS_KEY_ID` | S3 / R2 access key. |
+| `LITHOS_AWS_SECRET_ACCESS_KEY` | S3 / R2 secret. |
+
+<Callout type="warning">
+  Use `LITHOS_*` rather than `MANTLE_*`. Both work today, but `MANTLE_*`
+  will be removed in a future release.
+</Callout>
+
+## A minimal workflow
+
+```yaml filename=".github/workflows/deploy.yml"
+name: Deploy
+
+on:
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foreman
+        uses: Roblox/setup-foreman@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pick environment
+        id: env
+        run: |
+          if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            echo "label=prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "label=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy
+        env:
+          ROBLOSECURITY: ${{ secrets.ROBLOSECURITY }}
+          LITHOS_OPEN_CLOUD_API_KEY: ${{ secrets.LITHOS_OPEN_CLOUD_API_KEY }}
+          LITHOS_AWS_ACCESS_KEY_ID: ${{ secrets.LITHOS_AWS_ACCESS_KEY_ID }}
+          LITHOS_AWS_SECRET_ACCESS_KEY: ${{ secrets.LITHOS_AWS_SECRET_ACCESS_KEY }}
+        run: lithos deploy --environment ${{ steps.env.outputs.label }} --plain-preview
+```
+
+A few details worth understanding:
+
+- **`--plain-preview`** drops ANSI color codes from the plan preview so
+  GitHub's log viewer renders them legibly. Lithos auto-approves when
+  stdout is not a TTY, so no `--yes` flag is needed.
+- **The branch → environment mapping in the script** is a belt-and-suspenders
+  measure on top of the `branches:` constraint in `lithos.yml`. Either
+  alone would prevent a `develop` push from touching `prod`, but both is
+  more obvious to a future reader.
+- **Foreman pins the Lithos version** via `foreman.toml`. This is important:
+  CI should not silently pick up a new Lithos release the day it's
+  published.
+
+## Pull-request previews
+
+A common companion workflow: on every PR, run `lithos diff --live` and
+post the output as a comment. That way reviewers see "this PR will create
+2 places, update 1 game pass, delete 0 resources" without anything having
+to be applied.
+
+```yaml filename=".github/workflows/diff.yml"
+name: Diff
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  diff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Roblox/setup-foreman@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Diff
+        env:
+          ROBLOSECURITY: ${{ secrets.ROBLOSECURITY }}
+          LITHOS_OPEN_CLOUD_API_KEY: ${{ secrets.LITHOS_OPEN_CLOUD_API_KEY }}
+          LITHOS_AWS_ACCESS_KEY_ID: ${{ secrets.LITHOS_AWS_ACCESS_KEY_ID }}
+          LITHOS_AWS_SECRET_ACCESS_KEY: ${{ secrets.LITHOS_AWS_SECRET_ACCESS_KEY }}
+        run: lithos diff --environment dev --live --plain-preview
+```
+
+`--live` also surfaces drift introduced by hand-edits to the Creator Hub,
+which is exactly the moment you want to know about it.

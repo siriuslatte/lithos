@@ -1,0 +1,97 @@
+import { Callout } from 'nextra-theme-docs';
+
+# What is Lithos?
+
+Lithos is a Roblox infrastructure-as-code tool. You describe the experience
+you want to exist — places, configuration, products, badges, thumbnails,
+social links, spatial voice, notifications — in a YAML file, and Lithos
+makes Roblox match it.
+
+If you have used Terraform, Pulumi, or AWS CDK before, the model will feel
+familiar. If you have not, the rest of this page is the only mental model
+you need to use Lithos productively.
+
+## The three things Lithos owns
+
+1. **A configuration file** (`lithos.yml`) — the source of truth. What you
+   want to exist.
+2. **A state file** (`.lithos-state.yml`, local or remote) — what actually
+   exists, as far as Lithos last knew.
+3. **A live API** (Roblox + Open Cloud) — what actually exists *right now*.
+
+Every command is a function of those three inputs. `deploy` reconciles them
+in that order: read config, read state, verify state against the live API,
+plan a diff, apply it, write new state.
+
+<Callout type="info">
+  This is the most important sentence in these docs: **state is what Lithos
+  thinks exists; the live API is what really exists.** When they disagree,
+  Lithos calls that *drift*, and reconciles it before doing anything
+  destructive.
+</Callout>
+
+## What "infrastructure-as-code" buys you
+
+You probably already have a `game.rbxlx` in source control. Lithos extends
+that idea to the surrounding metadata that today lives in Studio dialogs and
+the Creator Hub: place names, server sizes, products, passes, badges,
+thumbnails, social links, voice settings. All of it becomes a code review,
+not a click-through.
+
+The practical consequence:
+
+- Every deploy is **reviewable**: a plan preview shows exactly which fields
+  on which resources will change, before any byte hits Roblox.
+- Every change is **rollback-able**: revert the YAML, redeploy.
+- Every environment is **reproducible**: `dev` and `prod` come from the same
+  config with declarative overrides, not parallel checklists.
+- Every CI pipeline is **boring**: a single binary, a state file in S3 or
+  R2, and three secrets.
+
+## What Lithos is not
+
+- **Not** a replacement for [Rojo](https://rojo.space/). Rojo turns Lua
+  source files into a `.rbxlx`. Lithos uploads that `.rbxlx` to a place and
+  configures everything around it. They are complementary tools.
+- **Not** a runtime. Lithos runs on your machine or in CI. It does not run
+  inside Roblox.
+- **Not** an SDK. There is no Lithos library you call from your game code.
+
+## The shortest possible example
+
+```yaml filename="lithos.yml"
+target:
+  experience:
+    configuration:
+      genre: building
+    places:
+      start:
+        file: game.rbxlx
+        configuration:
+          name: My Experience
+```
+
+```text
+$ lithos deploy
+```
+
+That creates a Roblox experience, uploads `game.rbxlx` as its start place,
+sets the place name and genre, and writes a state file recording the
+resulting asset IDs. Re-run the command and Lithos does nothing — state
+matches config, nothing to do.
+
+Change the place name in the YAML and re-run, and Lithos updates exactly
+that one field, in place, with no other side effects.
+
+## Where to go next
+
+- **[Getting Started](/docs/getting-started)** — install the tool and
+  deploy a real example end-to-end.
+- **[The resource graph](/docs/concepts/resource-graph)** — how Lithos
+  decides what to create, update, and destroy.
+- **[State and reconciliation](/docs/concepts/state)** — how state files
+  work and what happens when they go stale.
+- **[Environments](/docs/concepts/environments)** — how `dev` and `prod`
+  share a single config.
+
+If you are coming from Mantle, read **[Migrating from Mantle](/docs/guides/migrating-from-mantle)** first.

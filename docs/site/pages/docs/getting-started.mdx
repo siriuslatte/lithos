@@ -1,0 +1,222 @@
+import { Callout, Tabs, Tab } from 'nextra-theme-docs';
+
+# Getting started
+
+This page takes you from zero to a deployed Roblox experience in about ten
+minutes. By the end you will have:
+
+1. The `lithos` binary installed and on your `PATH`.
+2. A working Roblox Open Cloud API key and a `ROBLOSECURITY` cookie.
+3. A deployed `dev` environment created from the
+   [getting-started example](https://github.com/siriuslatte/lithos/tree/main/examples/projects/getting-started).
+4. A working mental model of what just happened.
+
+If you have never used Lithos before, read
+**[What is Lithos?](/docs/intro)** first — it is short, and the rest of this
+guide assumes that vocabulary.
+
+## Prerequisites
+
+- **Git.** [Install it](https://git-scm.com/downloads) if you do not have it.
+- **A terminal that handles UTF-8.** PowerShell, Windows Terminal, macOS
+  Terminal, and any modern Linux terminal are fine. Legacy `cmd.exe` will
+  garble Lithos's box-drawing output.
+- **A Roblox account** that owns the experiences you will manage. Lithos
+  cannot deploy to experiences you do not own.
+
+## 1. Install Lithos
+
+The recommended path is [Foreman](https://github.com/Roblox/foreman) — a
+Roblox toolchain manager that pins tool versions per-project. The
+**[Installation page](/docs/installation)** walks through Foreman setup
+in detail; the short version:
+
+<Tabs items={["Windows", "macOS / Linux"]}>
+  <Tab>
+    1. Download the latest `foreman-x.x.x-win64.zip` from the
+       [Foreman releases](https://github.com/roblox/foreman/releases) page
+       and extract `foreman.exe` somewhere stable (e.g. `C:\Programs\foreman\`).
+    2. Add that folder *and* `%USERPROFILE%\.foreman\bin` to your `PATH`.
+    3. In a new PowerShell window, verify:
+       ```ps1
+       foreman --version
+       ```
+  </Tab>
+  <Tab>
+    1. Download the latest `foreman-x.x.x-macos.zip` (or `-linux.zip`) from
+       [Foreman releases](https://github.com/roblox/foreman/releases) and
+       move the extracted binary onto your `PATH` (e.g. `/usr/local/bin/`).
+    2. Add `~/.foreman/bin` to your `PATH` in your shell rc.
+    3. Verify:
+       ```bash
+       foreman --version
+       ```
+  </Tab>
+</Tabs>
+
+Now clone the example repo and let Foreman install Lithos:
+
+```bash
+git clone https://github.com/siriuslatte/lithos
+cd lithos/examples
+foreman install
+lithos --version
+```
+
+The version you get is whatever `examples/foreman.toml` pins.
+
+<Callout type="info">
+  If you would rather grab a prebuilt binary directly, see the
+  **[Installation page](/docs/installation#manually-download-from-releases-simplest)**.
+</Callout>
+
+## 2. Authenticate
+
+The example deploys to a real Roblox account, so Lithos needs two things:
+
+- A `ROBLOSECURITY` cookie (used for the legacy site APIs).
+- A `LITHOS_OPEN_CLOUD_API_KEY` (used for everything Open Cloud supports).
+
+The **[Authentication page](/docs/authentication)** has the full story.
+The shortest version:
+
+1. Get an Open Cloud API key from the [Creator Hub](https://create.roblox.com/dashboard/credentials).
+   Grant it `universe-places:write`, `asset:read`, and `asset:write` for
+   the experiences you'll manage.
+2. If you are signed in to Roblox Studio on this machine, Lithos will pick
+   up your `ROBLOSECURITY` automatically. If not, set it explicitly.
+3. Put both in a `.env` file at the project root (next to `examples/`),
+   and add `.env` to `.gitignore`:
+
+   ```shell filename=".env"
+   LITHOS_OPEN_CLOUD_API_KEY="…"
+   ROBLOSECURITY="…"
+   ```
+
+## 3. Deploy
+
+From `examples/`:
+
+```text
+$ lithos deploy projects/getting-started --environment dev
+```
+
+Lithos prints three sections: **Loading project**, **Deploying resources**,
+and **Saving state**, followed by a summary of where the new experience
+lives on Roblox.
+
+```text filename="lithos deploy"
+Loading project:
+  ╷
+  │  Loaded config file projects/getting-started/lithos.yml
+  │  Selected provided environment configuration dev
+  │  Loading previous state from local file projects/getting-started/.lithos-state.yml
+  │  No previous state for environment dev
+  │
+  ╰─ Succeeded
+```
+
+That block is your audit trail: which config Lithos loaded, which
+environment it selected, where it looked for previous state, what it
+found.
+
+The next block is the diff Lithos plans to apply. On a fresh deploy
+everything is a create:
+
+```text filename="lithos deploy"
+Deploying resources:
+  ╷
+  │  + Creating: experience_singleton
+  │    ╷
+  │    │  Dependencies:
+  │    │      []
+  │    │  Inputs:
+  │    │    + experience:
+  │    │    +   groupId: ~
+  │    │
+  │    ╰─ Succeeded with outputs:
+  │         + experience:
+  │         +   assetId: 3296599132
+  │         +   startPlaceId: 8667346609
+
+... cut for brevity ...
+
+  │
+  ╰─ Succeeded with 6 create(s), 0 update(s), 0 delete(s), 0 noop(s), 0 skip(s)
+```
+
+The summary line is the part you want to scan in CI logs:
+`6 create(s)`, `0 delete(s)` means six resources were created and nothing
+was destroyed.
+
+Finally:
+
+```text filename="lithos deploy"
+Target results:
+  ╷
+  │  Experience:
+  │    https://www.roblox.com/games/8667346609
+  │
+  │  Places:
+  │    start: https://www.roblox.com/games/8667346609
+  │
+  ╰──○
+```
+
+Open the link to launch your new experience.
+
+## 4. Make a change and re-deploy
+
+Edit `projects/getting-started/lithos.yml`. Change the place name:
+
+```yaml filename="projects/getting-started/lithos.yml" {15}
+target:
+  experience:
+    configuration:
+      genre: building
+    places:
+      start:
+        file: game.rbxlx
+        configuration:
+          name: Going to the moon with Lithos
+```
+
+Run the deploy again:
+
+```text
+$ lithos deploy projects/getting-started --environment dev
+```
+
+This time, instead of six creates, you get **one update**, on exactly the
+field you changed. Everything else is a noop:
+
+```text
+Succeeded with 0 create(s), 1 update(s), 0 delete(s), 5 noop(s), 0 skip(s)
+```
+
+That is the entire pitch for infrastructure-as-code in one CLI run: you
+edited one line of YAML, and Lithos did the minimum amount of work
+required to make Roblox match it.
+
+## 5. (Optional) clean up
+
+If you do not want the example experience hanging around your account:
+
+```text
+$ lithos destroy projects/getting-started --environment dev
+```
+
+Roblox does not allow hard-deletes for most asset types, so "destroy"
+means archived and removed from Lithos state.
+
+## What to read next
+
+- **[The resource graph](/docs/concepts/resource-graph)** — what `5 noop(s)`
+  actually meant, and how the `+`/`~`/`−` markers are decided.
+- **[State and reconciliation](/docs/concepts/state)** — what
+  `.lithos-state.yml` is for and when to make it remote.
+- **[Environments](/docs/concepts/environments)** — how `dev` and `prod`
+  share a config without overwriting each other.
+- **[CLI reference](/docs/commands)** — every subcommand and flag.
+- **[Configuration reference](/docs/configuration/reference)** — every
+  field in `lithos.yml`.

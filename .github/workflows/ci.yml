@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+# Cancel in-progress runs for the same PR/branch when new commits are pushed.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # General workspace-level gate: build, lint, schema, CLI smoke, and a
+  # workspace-wide test run scoped to lib + bin targets so secret-dependent
+  # integration tests under `lithos/tests/` are not pulled into PR validation.
+  workspace-gate:
+    name: workspace-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.79.0
+          components: clippy,rustfmt
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-ci-workspace-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-ci-workspace-cargo-
+            ${{ runner.os }}-ci-cargo-
+      - name: Toolchain info
+        run: |
+          rustup show
+          cargo version
+          cargo clippy -V
+      - name: Build (workspace)
+        run: cargo build --locked --workspace --verbose
+      - name: Format check
+        run: cargo fmt -- --check
+      - name: Clippy (workspace, all targets)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test (workspace, lib + bins)
+        # Scoped to --lib --bins to keep secret-dependent integration tests
+        # in lithos/tests/ out of the default PR path. Those run via the
+        # `Integration Tests` workflow.
+        run: cargo test --locked --workspace --lib --bins
+      - name: Generate schema
+        run: cargo run --locked -p gen_schema
+      - name: CLI smoke (lithos --help)
+        run: cargo run --locked -p lithos -- --help
+
+  # Per-crate test jobs. Failures clearly identify which crate broke.
+  # When adding a new workspace member, add it to the matrix below.
+  crate-tests:
+    name: crate-tests / ${{ matrix.crate.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - { name: lithos,               targets: "--bins" }
+          - { name: gen_schema,           targets: "--bins" }
+          - { name: rbx_lithos,           targets: "--lib" }
+          - { name: rbx_api,              targets: "--lib" }
+          - { name: rbx_auth,             targets: "--lib --bins" }
+          - { name: rbx_cookie,           targets: "--lib --bins" }
+          - { name: logger,               targets: "--lib" }
+          - { name: integration_executor, targets: "--lib" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: 1.79.0
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-ci-crate-${{ matrix.crate.name }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-ci-crate-${{ matrix.crate.name }}-cargo-
+            ${{ runner.os }}-ci-workspace-cargo-
+      - name: Test ${{ matrix.crate.name }}
+        run: cargo test --locked -p ${{ matrix.crate.name }} ${{ matrix.crate.targets }}

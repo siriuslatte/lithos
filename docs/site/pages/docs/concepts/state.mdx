@@ -1,0 +1,137 @@
+import { Callout } from 'nextra-theme-docs';
+
+# State and reconciliation
+
+The state file is how Lithos remembers what it created. Without it, every
+deploy would have to re-discover every asset on Roblox, and there is no
+generic API for "list everything I own." With it, a deploy is a fast,
+predictable diff.
+
+## What is in the state file
+
+A YAML document keyed by environment, then by resource ID. For each
+resource, Lithos stores the inputs it deployed with and the outputs Roblox
+returned. Concretely:
+
+```yaml filename=".lithos-state.yml"
+environments:
+  dev:
+    experience_singleton:
+      inputs:
+        experience:
+          groupId: ~
+      outputs:
+        experience:
+          assetId: 3296599132
+          startPlaceId: 8667346609
+    place_start:
+      inputs: ~
+      outputs:
+        place:
+          assetId: 8667346609
+    placeFile_start:
+      inputs:
+        placeFile:
+          filePath: game.rbxlx
+          fileHash: 0c3a…
+      outputs:
+        placeFile:
+          version: 2
+    # … etc
+```
+
+You will rarely edit this by hand. The two things you should know:
+
+- **`fileHash` is how Lithos decides if a place file changed.** Editing
+  `game.rbxlx` flips the hash, which produces an update. Touching the file
+  without changing bytes does not.
+- **`outputs.assetId` is the canonical link between a Lithos resource and
+  a real Roblox asset.** Lose it and the next deploy will re-create the
+  asset from scratch.
+
+## Where the state file lives
+
+Two options. They produce identical state; only the storage backend
+differs.
+
+### Local (the default)
+
+`.lithos-state.yml` is written next to your `lithos.yml`. Commit it.
+
+Local state is fine when:
+
+- You are the only developer.
+- You only deploy from one machine.
+- You are happy to merge state-file conflicts in Git when collaborators
+  deploy from different branches.
+
+### Remote (S3, R2)
+
+State is written to a single object in S3 or Cloudflare R2. Multiple
+machines see the same state automatically.
+
+Remote state is the right answer when:
+
+- More than one person, machine, or CI job deploys.
+- You want CI to be the only thing that deploys to `prod`, with developers
+  deploying to `dev` from their laptops.
+- You don't want a state file in source control.
+
+Setup: **[Remote state guide](/docs/remote-state)**.
+
+<Callout type="info">
+  There is no third option. Lithos does not do "no state" — that would mean
+  re-creating every resource on every deploy. Pick local or remote.
+</Callout>
+
+## Drift, in one paragraph
+
+Drift is when the live Roblox state and the Lithos state file disagree.
+Most commonly it happens because somebody changed something through the
+Creator Hub or Studio. Lithos's *live reconciliation* pass detects drift
+for the resource types it can cheaply verify (experiences, places, game
+passes, developer products) and updates state to match reality before
+planning the diff. See **[The resource graph](/docs/concepts/resource-graph#drift-and-what-lithos-does-about-it)**.
+
+You can run the reconciliation pass on its own without applying anything:
+
+```text
+$ lithos diff --live
+```
+
+That prints the same diff a `deploy` would, against the reconciled state,
+without prompting and without writing.
+
+## Legacy `mantle.yml` / `.mantle-state.yml`
+
+Lithos transparently reads both Mantle and Lithos config and state files.
+On any new write, Lithos always uses the Lithos-named files. There is no
+flag day; Mantle projects can be migrated incrementally. See
+**[Migrating from Mantle](/docs/guides/migrating-from-mantle)**.
+
+## Common state-file questions
+
+**Q: My teammate and I both deployed `dev` and now Git can't merge the
+state file.**
+You either need remote state, or you need a convention where only one
+machine deploys `dev` (often: only CI). The state file is not designed
+for parallel writers.
+
+**Q: Can I delete the state file and start over?**
+Yes, but Lithos will think nothing exists and try to re-create every
+resource. The old assets stay on Roblox, orphaned. Better: use
+`lithos import` to attach an existing experience to a fresh state file
+(experimental).
+
+**Q: Can I edit the state file by hand?**
+Technically yes. Practically: only ever as a last resort, and always make
+a backup first. The `outputs` section is what binds Lithos to Roblox
+asset IDs — if you change an `assetId` to one you do not own, the next
+deploy will fail authentication; if you change it to one someone else
+owns, you may inadvertently mutate an asset you are not entitled to.
+
+## Continue with
+
+- **[Environments](/docs/concepts/environments)** — how one config file
+  produces multiple isolated state graphs.
+- **[Remote state](/docs/remote-state)** — set up S3 or R2 state.

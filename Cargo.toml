@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = [
+    # bins
+    "lithos",
+    "gen_schema",
+
+    # libs
+    "rbx_lithos",
+    "rbx_api",
+    "rbx_auth",
+    "rbx_cookie",
+    "logger",
+    "integration_executor"
+]

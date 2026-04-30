@@ -1,0 +1,92 @@
+use async_trait::async_trait;
+use rusoto_core::credential::{
+    AwsCredentials, ContainerProvider, CredentialsError, EnvironmentProvider,
+    InstanceMetadataProvider, ProfileProvider, ProvideAwsCredentials,
+};
+use std::env;
+use std::time::Duration;
+
+#[derive(Clone, Debug)]
+pub struct AwsCredentialsProvider {
+    lithos_environment_provider: EnvironmentProvider,
+    prefixed_environment_provider: EnvironmentProvider,
+    environment_provider: EnvironmentProvider,
+    profile_provider: Option<ProfileProvider>,
+    container_provider: Option<ContainerProvider>,
+    instance_metadata_provider: Option<InstanceMetadataProvider>,
+}
+
+impl AwsCredentialsProvider {
+    pub fn new() -> AwsCredentialsProvider {
+        let mut inherit_iam_role = false;
+        // Accept both LITHOS_AWS_INHERIT_IAM_ROLE (preferred) and the legacy
+        // MANTLE_AWS_INHERIT_IAM_ROLE for backward compatibility.
+        for var in ["LITHOS_AWS_INHERIT_IAM_ROLE", "MANTLE_AWS_INHERIT_IAM_ROLE"] {
+            if let Ok(value) = env::var(var) {
+                if value == "true" {
+                    inherit_iam_role = true;
+                }
+            }
+        }
+
+        AwsCredentialsProvider {
+            lithos_environment_provider: EnvironmentProvider::with_prefix("LITHOS_AWS"),
+            prefixed_environment_provider: EnvironmentProvider::with_prefix("MANTLE_AWS"),
+            environment_provider: EnvironmentProvider::default(),
+            profile_provider: ProfileProvider::new().ok(),
+            container_provider: if inherit_iam_role {
+                let mut provider = ContainerProvider::new();
+                provider.set_timeout(Duration::from_secs(15));
+                Some(provider)
+            } else {
+                None
+            },
+            instance_metadata_provider: if inherit_iam_role {
+                let mut provider = InstanceMetadataProvider::new();
+                provider.set_timeout(Duration::from_secs(15));
+                Some(provider)
+            } else {
+                None
+            },
+        }
+    }
+}
+
+async fn chain_provider_credentials(
+    provider: AwsCredentialsProvider,
+) -> Result<AwsCredentials, CredentialsError> {
+    if let Ok(creds) = provider.lithos_environment_provider.credentials().await {
+        return Ok(creds);
+    }
+    if let Ok(creds) = provider.prefixed_environment_provider.credentials().await {
+        return Ok(creds);
+    }
+    if let Ok(creds) = provider.environment_provider.credentials().await {
+        return Ok(creds);
+    }
+    if let Some(ref profile_provider) = provider.profile_provider {
+        if let Ok(creds) = profile_provider.credentials().await {
+            return Ok(creds);
+        }
+    }
+    if let Some(ref container_provider) = provider.container_provider {
+        if let Ok(creds) = container_provider.credentials().await {
+            return Ok(creds);
+        }
+    }
+    if let Some(ref instance_metadata_provider) = provider.instance_metadata_provider {
+        if let Ok(creds) = instance_metadata_provider.credentials().await {
+            return Ok(creds);
+        }
+    }
+    Err(CredentialsError::new(
+        "Couldn't find AWS credentials in environment, credentials file, or instance/container IAM role.",
+    ))
+}
+
+#[async_trait]
+impl ProvideAwsCredentials for AwsCredentialsProvider {
+    async fn credentials(&self) -> Result<AwsCredentials, CredentialsError> {
+        chain_provider_credentials(self.clone()).await
+    }
+}

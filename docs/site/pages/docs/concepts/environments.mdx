@@ -1,0 +1,183 @@
+import { Callout } from 'nextra-theme-docs';
+
+# Environments
+
+In real projects, you have at least two deployments: one for testing and
+one for players. Lithos calls those *environments*. Every environment has
+its own state — its own experience, places, products — driven by the same
+config file with declarative overrides.
+
+You select the environment at the command line:
+
+```text
+$ lithos deploy --environment dev
+$ lithos deploy --environment prod
+```
+
+The shape of `lithos.yml` is:
+
+```yaml filename="lithos.yml"
+environments:
+  - label: dev
+    targetNamePrefix: environmentLabel
+  - label: prod
+    targetAccess: public
+
+target:
+  experience:
+    configuration:
+      genre: building
+    places:
+      start:
+        file: game.rbxlx
+        configuration:
+          name: My Experience
+```
+
+`target` describes the resources that exist in *every* environment. Each
+entry under `environments` describes how that environment differs from the
+defaults.
+
+## What you can override per environment
+
+Each entry under `environments` accepts the following keys (all optional):
+
+| Key | Effect |
+| --- | --- |
+| `label` | Identifier you pass to `--environment`. Required. |
+| `branches` | Restrict this environment to specific Git branches. CI uses this. |
+| `targetAccess` | Override visibility for this environment. `private`, `friends`, or `public`. |
+| `targetNamePrefix` | Prefix the experience and place names. See below. |
+| `targetOverrides` | Arbitrary deep merge into `target` for this environment. |
+
+### Naming with `targetNamePrefix`
+
+The most common case: you want your `dev` experience to be obviously
+different from `prod`. Two values are typical:
+
+```yaml
+environments:
+  - label: dev
+    targetNamePrefix: environmentLabel    # "[DEV] My Experience"
+  - label: prod
+    targetNamePrefix: none                 # "My Experience"
+```
+
+`environmentLabel` prefixes the place name with `[<LABEL>]` (uppercased).
+`none` means no prefix. You can also pass a custom string with
+`{ custom: "STAGING" }`.
+
+### Visibility with `targetAccess`
+
+```yaml
+environments:
+  - label: dev
+    targetAccess: private
+  - label: prod
+    targetAccess: public
+```
+
+`private` means only you can launch the experience. `friends` means you
+and your Roblox friends. `public` means everyone. Useful for keeping `dev`
+out of the public listings.
+
+### Arbitrary overrides with `targetOverrides`
+
+For anything else, deep-merge the override into `target`:
+
+```yaml
+environments:
+  - label: dev
+    targetOverrides:
+      experience:
+        configuration:
+          maxPlayers: 10            # smaller dev servers
+        places:
+          start:
+            configuration:
+              maxPlayerCount: 10
+  - label: prod
+    targetOverrides:
+      experience:
+        places:
+          start:
+            configuration:
+              maxPlayerCount: 50
+```
+
+This is YAML deep-merge: lists replace wholesale, scalars and maps merge
+key-by-key.
+
+## State is per-environment
+
+Each environment has its own slice of the state file. Switching from
+`--environment dev` to `--environment prod` does **not** modify dev's
+state, and vice versa. The two environments are entirely independent.
+
+Concretely, in the state file you'll see:
+
+```yaml filename=".lithos-state.yml"
+environments:
+  dev: { … }
+  prod: { … }
+```
+
+## Branch gating in CI
+
+If a CI pipeline runs the same deploy command on every branch, you can
+restrict environments to specific branches with `branches`:
+
+```yaml
+environments:
+  - label: dev
+    branches: [develop]
+  - label: prod
+    branches: [main]
+```
+
+Now `lithos deploy --environment prod` will refuse to run on any branch
+other than `main`, even if a developer accidentally points CI at it.
+
+## Common patterns
+
+### Two-environment baseline
+
+```yaml
+environments:
+  - label: dev
+    targetNamePrefix: environmentLabel
+    targetAccess: private
+  - label: prod
+    targetAccess: public
+    branches: [main]
+```
+
+### Per-developer playgrounds
+
+For each engineer, a personal environment:
+
+```yaml
+environments:
+  - label: alice
+    targetNamePrefix: { custom: "[ALICE]" }
+    branches: [feature/alice/*]
+  - label: bob
+    targetNamePrefix: { custom: "[BOB]" }
+    branches: [feature/bob/*]
+```
+
+Combined with remote state, each developer can iterate without stepping on
+each other's toes.
+
+<Callout type="warning">
+  Per-developer environments multiply the number of Roblox assets in your
+  group. If you go this route, plan to clean up unused environments with
+  `lithos destroy --environment <name>` periodically.
+</Callout>
+
+## Continue with
+
+- **[Getting Started](/docs/getting-started)** — try a real two-environment
+  deploy.
+- **[Continuous deployment](/docs/continuous-deployment)** — lock `prod`
+  behind CI on `main`.

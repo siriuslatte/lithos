@@ -1,0 +1,129 @@
+import { Callout, Tabs, Tab } from 'nextra-theme-docs';
+
+# Authentication
+
+Lithos talks to three external systems: Roblox legacy site APIs, Roblox
+Open Cloud, and (optionally) an S3-compatible bucket for remote state.
+Each needs its own credential. None of them are stored or transmitted by
+Lithos — they live in environment variables and `.env` files you control.
+
+| Credential | Used for | Required for |
+| --- | --- | --- |
+| `ROBLOSECURITY` | Legacy Roblox APIs (place uploads, configurations, social links, etc.) | Almost every deploy. |
+| `LITHOS_OPEN_CLOUD_API_KEY` | Roblox Open Cloud (asset uploads, place publish, etc.) | Most deploys; required for asset uploads. |
+| `LITHOS_AWS_ACCESS_KEY_ID` / `LITHOS_AWS_SECRET_ACCESS_KEY` / `LITHOS_AWS_INHERIT_IAM_ROLE` | S3 / Cloudflare R2 remote state | Only when using [remote state](/docs/remote-state). |
+
+Lithos still honors the legacy `MANTLE_*` names. See
+**[Migrating from Mantle](/docs/guides/migrating-from-mantle)**.
+
+## `ROBLOSECURITY`
+
+This is the same browser cookie Roblox uses to keep you logged in to
+[roblox.com](https://www.roblox.com) and Roblox Studio. Lithos prefers
+**not** to require you to extract it manually:
+
+- **If you are signed in to Roblox Studio on this machine**, Lithos picks
+  the cookie up from the OS keychain (Windows Credential Manager / macOS
+  Keychain). Nothing for you to do.
+- **If not**, set it explicitly:
+
+  <Tabs items={["Bash / zsh", "PowerShell"]}>
+    <Tab>
+      ```bash
+      export ROBLOSECURITY="…"
+      ```
+    </Tab>
+    <Tab>
+      ```ps1
+      $env:ROBLOSECURITY = "…"
+      ```
+    </Tab>
+  </Tabs>
+
+  Or add it to a `.env` file at the project root.
+
+<Callout type="warning">
+  A `ROBLOSECURITY` cookie is the equivalent of your Roblox password.
+  Never commit it to Git. Add `.env` to `.gitignore`. Rotate it
+  immediately if it leaks (Account → Security → Sign out of all sessions).
+</Callout>
+
+### Extracting the cookie manually
+
+If automatic detection does not find your cookie (common on headless CI
+or new machines):
+
+1. Sign in to [roblox.com](https://www.roblox.com) in any modern browser.
+2. Open DevTools → Application → Cookies → `https://www.roblox.com`.
+3. Copy the value of the `.ROBLOSECURITY` cookie.
+4. In CI, store it as a secret named `ROBLOSECURITY`.
+
+## `LITHOS_OPEN_CLOUD_API_KEY`
+
+Roblox Open Cloud is the modern, scoped, server-to-server API. You will
+want a key for almost every project:
+
+1. Go to the [Creator Hub credentials page](https://create.roblox.com/dashboard/credentials).
+2. Create a new API key.
+3. Add the experiences this project deploys to under **Access Permissions**.
+4. Grant the operations Lithos needs:
+   - `universe-places:write` — for publishing places.
+   - `asset:read`, `asset:write` — for uploading image and audio assets.
+5. Optionally restrict the key by IP. CI runners often have stable
+   egress IPs you can pin.
+6. Set the key:
+
+   ```shell filename=".env"
+   LITHOS_OPEN_CLOUD_API_KEY="…"
+   ```
+
+Lithos prints a clear error naming the missing scope when an API call
+fails for a permissions reason — read it carefully before regenerating.
+
+## AWS credentials (only for remote state)
+
+If you use **[remote state](/docs/remote-state)**, Lithos needs S3 (or R2,
+or any S3-compatible) credentials with `Get` / `Put` / `List` on the state
+prefix.
+
+```shell filename=".env"
+LITHOS_AWS_ACCESS_KEY_ID="…"
+LITHOS_AWS_SECRET_ACCESS_KEY="…"
+```
+
+For workloads running on AWS infrastructure (EC2 instance profiles, ECS
+task roles, EKS service accounts), set:
+
+```shell
+LITHOS_AWS_INHERIT_IAM_ROLE=1
+```
+
+and Lithos will pick up the ambient role instead of looking for explicit
+keys.
+
+R2-specific configuration (account ID, endpoint, scope) is documented on
+**[Cloudflare R2 remote state](/docs/remote-state/cloudflare-r2)**.
+
+## Using a `.env` file
+
+Lithos automatically loads a `.env` file from the project root and from
+the current working directory. The file is dotenv-format
+(`KEY="value"` per line, `#` comments). This is the recommended way to
+hold secrets locally:
+
+```shell filename=".env"
+ROBLOSECURITY="…"
+LITHOS_OPEN_CLOUD_API_KEY="…"
+
+# Only if using remote state
+LITHOS_AWS_ACCESS_KEY_ID="…"
+LITHOS_AWS_SECRET_ACCESS_KEY="…"
+```
+
+```shell filename=".gitignore"
+.env
+.env.*
+```
+
+Never check `.env` in. The same file in CI should be replaced by
+encrypted secrets injected as real environment variables.

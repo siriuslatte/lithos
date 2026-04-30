@@ -1,0 +1,28 @@
+{
+  "intro": "Introduction",
+  "-- get-started": {
+    "type": "separator",
+    "title": "Get started"
+  },
+  "getting-started": "Getting Started",
+  "installation": "Installation",
+  "authentication": "Authentication",
+  "-- concepts": {
+    "type": "separator",
+    "title": "Concepts"
+  },
+  "concepts": "Concepts",
+  "-- guides": {
+    "type": "separator",
+    "title": "Guides"
+  },
+  "guides": "Guides",
+  "remote-state": "Remote State",
+  "continuous-deployment": "Continuous Deployment",
+  "-- reference": {
+    "type": "separator",
+    "title": "Reference"
+  },
+  "commands": "CLI Commands",
+  "configuration": "Configuration"
+}

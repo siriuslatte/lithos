@@ -1,0 +1,39 @@
+[package]
+name = "lithos"
+version = "0.1.0"
+edition = "2021"
+description = "Infra-as-code and deployment tool for Roblox (formerly Mantle)"
+license = "MIT"
+publish = false
+
+[[bin]]
+name = "lithos"
+path = "src/main.rs"
+
+[dependencies]
+rbx_lithos = { path = "../rbx_lithos" }
+rbx_api = { path = "../rbx_api" }
+rbx_auth = { path = "../rbx_auth" }
+logger = { path = "../logger" }
+integration_executor = { path = "../integration_executor" }
+
+serde_json = { version = "1.0.59" }
+serde_yaml = { version = "0.8" }
+serde = { version = "1.0", features = ["derive"] }
+clap = "2.33.0"
+difference = "2.0.0"
+tokio = { version = "1", features = ["full"] }
+yansi = "0.5.0"
+log = "0.4.14"
+env_logger = "0.9.0"
+dotenv = "0.15.0"
+
+# Interactive TUI stack. Used only when stderr/stdout are TTYs; non-interactive
+# code paths fall back to the plain renderers in `ui` and `preview::render`.
+indicatif = "0.17"
+inquire = { version = "0.7", default-features = false, features = ["crossterm"] }
+ratatui = { version = "0.28", default-features = false, features = ["crossterm"] }
+crossterm = "0.28"
+
+[dev-dependencies]
+test-generator = "0.3.0"

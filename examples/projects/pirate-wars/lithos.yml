@@ -1,0 +1,157 @@
+# Pirate Wars — a complete Lithos example.
+#
+# Demonstrates most of what Lithos can manage in a single project:
+#
+#   * Multi-place experience (start place + a `battle` side place)
+#   * Experience icon and ordered thumbnails
+#   * Detailed experience configuration (genre, devices, avatar, monetization)
+#   * Per-environment overrides (`targetNamePrefix`, `targetAccess`,
+#     `targetOverrides`) so dev and prod get different settings from one file
+#   * Developer products, game passes, and badges
+#   * Social links and in-experience notification strings
+#   * Asset bundle uploaded as `rbxgameasset://` references
+#
+# Deploy a single environment:
+#
+#     lithos deploy projects/pirate-wars --environment dev
+#
+# Or preview without changing anything:
+#
+#     lithos diff projects/pirate-wars --environment dev
+#
+# Note: this example reuses `marketing/game-icon.png` as the placeholder icon
+# for products, passes, and badges so it works out of the box. Swap in real
+# icons under `products/`, `passes/`, `badges/` when you have them.
+
+# --- Ownership and state ----------------------------------------------------
+# `owner` controls which Roblox account/group owns created assets.
+# `payments` controls who is paid for monetized resources.
+# Both are optional; defaults are shown commented out.
+#
+# owner: personal           # or: { group: 1234567 }
+# payments: owner           # or: personal | group
+#
+# `state` controls where Lithos stores its tracking file. The default is a
+# local `.lithos-state.yml` next to this file. To share state with a team or
+# CI runner, point it at S3:
+#
+# state:
+#   remote:
+#     region: us-east-1
+#     bucket: my-lithos-states
+#     key: pirate-wars
+
+# --- Environments -----------------------------------------------------------
+environments:
+  - label: dev
+    branches: [dev]
+    # Prefix all place names with `[DEV] ` so dev builds are obvious in the
+    # creator dashboard.
+    targetNamePrefix: environmentLabel
+    # Force everything private regardless of `target.experience.configuration`.
+    targetAccess: private
+    # Per-environment overrides. These win over the base `target` block.
+    targetOverrides:
+      experience:
+        configuration:
+          # Disable paid private servers in dev so test users aren't charged.
+          privateServers: free
+
+  - label: prod
+    branches: [main]
+    targetAccess: public
+    # Tag the commit `start-v<n>` / `battle-v<n>` after a successful deploy
+    # so it's easy to roll back to a known-good build.
+    tagCommit: true
+
+# --- Target -----------------------------------------------------------------
+target:
+  experience:
+    icon: marketing/game-icon.png
+    thumbnails:
+      - marketing/game-thumbnail-fall-update.png
+      - marketing/game-thumbnail-default.png
+
+    configuration:
+      genre: naval
+      playableDevices: [computer, console]
+      playability: public
+      privateServers:
+        price: 50
+      enableStudioAccessToApis: true
+      allowThirdPartySales: false
+      allowThirdPartyTeleports: false
+
+    places:
+      start:
+        file: lobby.rbxlx
+        configuration:
+          name: Pirate Wars!
+          description: |-
+            Duke it out on the high seas in your pirate ship!
+
+            Fall update: new cannons, new ship types!
+          maxPlayerCount: 100
+          serverFill: robloxOptimized
+
+      battle:
+        file: battle.rbxlx
+        configuration:
+          name: Pirate Wars! (Battle)
+          description: The place you get teleported to when you join a battle.
+          maxPlayerCount: 24
+          serverFill:
+            reservedSlots: 4
+
+    # Bundle of assets uploaded and made available in-game as
+    # `rbxgameasset://Images/<name>` and `rbxgameasset://Audio/<name>`.
+    assets:
+      - file: marketing/game-icon.png
+        name: game-icon
+
+    # In-experience monetization.
+    products:
+      fiftyGold:
+        name: 50 Gold
+        description: Add 50 gold to your wallet!
+        icon: marketing/game-icon.png
+        price: 25
+      hundredGold:
+        name: 100 Gold
+        description: Add 100 gold to your wallet!
+        icon: marketing/game-icon.png
+        price: 45
+
+    passes:
+      shipOfTheLine:
+        name: Ship of the Line
+        description: Get the best ship in the game!
+        icon: marketing/game-icon.png
+        price: 499
+
+    badges:
+      captureFirstShip:
+        name: Capture First Ship!
+        description: You captured your first enemy ship!
+        icon: marketing/game-icon.png
+      sinkTenShips:
+        name: Sink 10 Ships
+        description: You sent ten enemy vessels to the depths.
+        icon: marketing/game-icon.png
+
+    # Links shown on the experience's Roblox webpage.
+    socialLinks:
+      - title: Follow on Twitter
+        url: https://twitter.com/example
+      - title: Join our Discord
+        url: https://discord.gg/example
+
+    # Notification strings the game can fire via the Roblox Open Cloud API.
+    # `{experienceName}` is required; `{displayName}` is optional.
+    notifications:
+      customInvitePrompt:
+        name: Custom Invite Prompt
+        content: '{displayName} is inviting you to join {experienceName}!'
+      eventStarting:
+        content: A new event is starting in {experienceName}!
+

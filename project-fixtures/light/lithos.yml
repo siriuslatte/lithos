@@ -1,0 +1,21 @@
+environments:
+  - label: staging
+    branches: [dev, dev/*]
+    targetNamePrefix: environmentLabel
+    targetAccess: private
+
+target:
+  experience:
+    places:
+      start:
+        file: place.rbxl
+        configuration:
+          name: Lightweight Mantle Test
+          serverFill:
+            reservedSlots: 4
+
+state:
+  remote:
+    region: us-west-2
+    bucket: mantle-states
+    key: project-fixtures/light

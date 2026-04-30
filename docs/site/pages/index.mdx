@@ -1,0 +1,227 @@
+﻿import Link from 'next/link';
+
+<div className="relative w-full px-6 pt-20 pb-10 sm:pt-28 sm:pb-14 flex flex-col gap-7 items-center justify-center text-center">
+  <span className="lithos-pill">Roblox Infrastructure-as-Code · v0.1</span>
+
+  <h1 className="text-6xl sm:text-7xl md:text-8xl font-extrabold tracking-tight leading-none">
+    <span className="lithos-gradient-text">Lithos</span>
+  </h1>
+
+  <p
+    className="max-w-2xl text-lg sm:text-xl leading-relaxed"
+    style={{ color: 'var(--lithos-muted)' }}
+  >
+    Describe your Roblox experience in YAML. Plan, preview, and deploy places,
+    products, badges, thumbnails, and more — from your terminal or from CI.
+  </p>
+
+  <div className="flex flex-wrap gap-3 items-center justify-center pt-2">
+    <Link href="/docs/getting-started" className="lithos-cta">
+      Get started
+      <span aria-hidden="true">→</span>
+    </Link>
+    <Link href="/docs/configuration" className="lithos-cta-secondary">
+      Configuration reference
+    </Link>
+    <a
+      href="https://github.com/siriuslatte/lithos"
+      target="_blank"
+      rel="noreferrer"
+      className="lithos-cta-secondary"
+    >
+      GitHub
+    </a>
+  </div>
+
+  <div className="mt-3 text-xs" style={{ color: 'var(--lithos-muted)' }}>
+    The continuation of <a href="https://github.com/blake-mealey/mantle" target="_blank" rel="noreferrer" style={{ color: 'var(--lithos-accent)', textDecoration: 'underline' }}>Mantle</a>. Existing <code>mantle.yml</code> projects keep working.
+  </div>
+</div>
+
+<div className="max-w-[72rem] mx-auto px-6 mb-20">
+  <div className="lithos-terminal">
+    <div className="lithos-terminal-bar">
+      <span className="lithos-terminal-dot" style={{ background: '#ff5f56' }} />
+      <span className="lithos-terminal-dot" style={{ background: '#ffbd2e' }} />
+      <span className="lithos-terminal-dot" style={{ background: '#27c93f' }} />
+      <span className="lithos-terminal-title">~/my-game — lithos deploy</span>
+    </div>
+```text
+$ lithos deploy
+Deploying resources:
+  ╷
+  │  + Creating: badge_first-steps
+  │  ~ Updating: experienceConfiguration_singleton
+  │    ╷ name:        Going to the Moon
+  │    ╰ playableDevices: [computer, phone] → [computer, phone, console]
+  │  ~ Updating: place_start
+  │  ✓ Verified:  asset_thumbnail-hero (no drift)
+  ╰─ ✓ 1 create · 2 update · 0 delete · 7 noop · 0 skip   (4.2s)
+```
+  </div>
+</div>
+
+<div className="max-w-[72rem] mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-3 mb-20">
+  <div className="lithos-stat">
+    <div className="lithos-stat-num">14+</div>
+    <div className="lithos-stat-label">Roblox resource types</div>
+  </div>
+  <div className="lithos-stat">
+    <div className="lithos-stat-num">YAML</div>
+    <div className="lithos-stat-label">Single source of truth</div>
+  </div>
+  <div className="lithos-stat">
+    <div className="lithos-stat-num">1</div>
+    <div className="lithos-stat-label">Static binary, zero runtime deps</div>
+  </div>
+  <div className="lithos-stat">
+    <div className="lithos-stat-num">0</div>
+    <div className="lithos-stat-label">Surprise destructive changes</div>
+  </div>
+</div>
+
+<div className="max-w-[72rem] mx-auto px-6 mb-20">
+  <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-center mb-3">
+    Deploy Roblox like <span className="lithos-gradient-text">infrastructure</span>
+  </h2>
+  <p
+    className="text-center max-w-2xl mx-auto mb-10 text-base sm:text-lg"
+    style={{ color: 'var(--lithos-muted)' }}
+  >
+    Predictable, reviewable, and CI-friendly. Built on years of real Roblox
+    deployment experience.
+  </p>
+
+  <div className="lithos-grid">
+    <div className="lithos-card">
+      <div className="lithos-card-eyebrow">Plan first</div>
+      <div className="lithos-card-title">Field-level diffs</div>
+      <p className="lithos-card-body">
+        Every deploy starts with a plan: per-field <code>+</code>, <code>-</code>,
+        and <code>~</code> markers, explicit destructive warnings, and the
+        option to bail before a single byte hits Roblox.
+      </p>
+      <Link href="/docs/getting-started" className="lithos-card-link">
+        See a plan →
+      </Link>
+    </div>
+
+    <div className="lithos-card">
+      <div className="lithos-card-eyebrow">Drift-aware</div>
+      <div className="lithos-card-title">Reconciles with reality</div>
+      <p className="lithos-card-body">
+        Verifies persisted state against the live Roblox API and re-creates
+        anything someone deleted in the dashboard.
+      </p>
+    </div>
+
+    <div className="lithos-card">
+      <div className="lithos-card-eyebrow">CI native</div>
+      <div className="lithos-card-title">Built for pipelines</div>
+      <p className="lithos-card-body">
+        Detects piped contexts, supports remote state in S3 / R2, and ships a
+        single static binary. Drop it in a workflow and forget it.
+      </p>
+    </div>
+
+    <div className="lithos-card">
+      <div className="lithos-card-eyebrow">Resources</div>
+      <div className="lithos-card-title">Places, badges, products & more</div>
+      <p className="lithos-card-body">
+        Experiences, places, developer products, game passes, badges, asset
+        aliases, social links, notifications, spatial voice, thumbnails — all
+        as YAML.
+      </p>
+    </div>
+
+    <div className="lithos-card">
+      <div className="lithos-card-eyebrow">Schema-aware</div>
+      <div className="lithos-card-title">Editor autocomplete</div>
+      <p className="lithos-card-body">
+        A JSON Schema is generated from source, so your editor knows every
+        valid field, value, and shape inside <code>lithos.yml</code>.
+      </p>
+      <Link href="/docs/configuration" className="lithos-card-link">
+        Configuration →
+      </Link>
+    </div>
+
+    <div className="lithos-card">
+      <div className="lithos-card-eyebrow">Roblox tooling</div>
+      <div className="lithos-card-title">Plays nicely with what you use</div>
+      <p className="lithos-card-body">
+        Install with <a href="https://github.com/roblox/foreman" target="_blank" rel="noreferrer">Foreman</a> or{' '}
+        <a href="https://github.com/rojo-rbx/rokit" target="_blank" rel="noreferrer">Rokit</a>,
+        build places with <a href="https://rojo.space" target="_blank" rel="noreferrer">Rojo</a>.
+      </p>
+      <Link href="/docs/installation" className="lithos-card-link">
+        Installation →
+      </Link>
+    </div>
+  </div>
+</div>
+
+<div className="max-w-[72rem] mx-auto px-6 mb-20 grid grid-cols-1 lg:grid-cols-2 gap-5">
+  <div className="lithos-split-card">
+    <div className="lithos-card-eyebrow">Declarative</div>
+    <div className="lithos-card-title">Describe the shape, not the steps</div>
+    <p className="lithos-card-body mb-4">
+      Lithos figures out what to create, update, and delete to match the YAML
+      you wrote.
+    </p>
+```yaml
+target:
+  experience:
+    configuration:
+      genre: building
+    places:
+      start:
+        file: game.rbxlx
+        configuration:
+          name: Getting Started with Lithos
+```
+  </div>
+
+  <div className="lithos-split-card">
+    <div className="lithos-card-eyebrow">Continuous deployment</div>
+    <div className="lithos-card-title">One job, one binary</div>
+    <p className="lithos-card-body mb-4">
+      Drop a workflow, point it at a state bucket, and let Lithos handle the
+      rest.
+    </p>
+```yaml
+- name: Deploy
+  run: lithos deploy
+  env:
+    ROBLOSECURITY: ${{ secrets.ROBLOSECURITY }}
+    AWS_ACCESS_KEY_ID: ${{ secrets.AWS_KEY }}
+    AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET }}
+```
+  </div>
+</div>
+
+<div className="max-w-[72rem] mx-auto px-6 mb-24">
+  <div className="lithos-cta-card">
+    <div>
+      <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-2">
+        Ready to ship?
+      </h2>
+      <p
+        className="text-base sm:text-lg max-w-xl"
+        style={{ color: 'var(--lithos-muted)' }}
+      >
+        Sixty seconds from install to your first preview. No accounts, no
+        telemetry, no lock-in.
+      </p>
+    </div>
+    <div className="flex flex-wrap gap-3">
+      <Link href="/docs/getting-started" className="lithos-cta">
+        Get started
+        <span aria-hidden="true">→</span>
+      </Link>
+      <Link href="/docs/guides/migrating-from-mantle" className="lithos-cta-secondary">
+        Coming from Mantle?
+      </Link>
+    </div>
+  </div>
+</div>

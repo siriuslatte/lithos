@@ -1,0 +1,29 @@
+# The simplest possible Lithos project: one experience, one place.
+#
+# `lithos deploy --environment dev` will create a private experience and
+# upload `game.rbxlx` as its start place. Once you're happy with it,
+# `lithos deploy --environment prod` flips it public.
+
+environments:
+  - label: dev
+    # Prefixes the place name with `[DEV] ` so prod and dev are easy to tell
+    # apart in the creator dashboard.
+    targetNamePrefix: environmentLabel
+  - label: prod
+    # Only the prod environment is published publicly.
+    targetAccess: public
+
+target:
+  experience:
+    configuration:
+      genre: building
+      playableDevices: [computer, phone, tablet]
+    places:
+      start:
+        file: game.rbxlx
+        configuration:
+          name: Getting Started with Lithos
+          description: |-
+            Made with Lithos.
+          maxPlayerCount: 20
+
