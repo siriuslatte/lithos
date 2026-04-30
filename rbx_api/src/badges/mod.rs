@@ -29,7 +29,7 @@ impl RobloxApi {
             .send_request(|| async {
                 Ok(self
                     .client
-                    .post(&format!(
+                    .post(format!(
                         "https://badges.roblox.com/v1/universes/{}/badges",
                         experience_id
                     ))
@@ -143,7 +143,7 @@ impl RobloxApi {
             .send_request(|| async {
                 Ok(self
                     .client
-                    .post(&format!(
+                    .post(format!(
                         "https://publish.roblox.com/v1/badges/{}/icon",
                         badge_id
                     ))

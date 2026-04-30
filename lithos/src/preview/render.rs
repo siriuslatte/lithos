@@ -120,7 +120,7 @@ pub fn preview_and_confirm(plan: &Plan, options: PreviewOptions) -> Decision {
 /// Interactive flow: alt-screen plan viewer first, then a Copilot-style
 /// arrow-key confirmation prompt. Falls back to the inline `render_rich`
 /// + y/N readline prompt when the alt-screen viewer can't be used (e.g.
-/// the terminal supports color but not raw mode).
+///   the terminal supports color but not raw mode).
 fn interactive_flow(plan: &Plan) -> Decision {
     if !tui::interactive_enabled() {
         render_rich(plan);

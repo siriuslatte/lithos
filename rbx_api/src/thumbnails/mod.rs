@@ -25,7 +25,7 @@ impl RobloxApi {
             .send_request(|| async {
                 Ok(self
                     .client
-                    .post(&format!(
+                    .post(format!(
                         "https://publish.roblox.com/v1/games/{}/icon",
                         experience_id
                     ))
@@ -46,7 +46,7 @@ impl RobloxApi {
             .send_request(|| async {
                 Ok(self
                     .client
-                    .post(&format!(
+                    .post(format!(
                         "https://publish.roblox.com/v1/games/{}/thumbnail/image",
                         experience_id
                     ))

@@ -1,8 +1,8 @@
 //! Project state: load, save, and reconstruct the resource graph.
 //!
 //! Internally split into:
-//! - [`io`]: persistence (file/S3 IO, versioning, parse/serialize)
-//! - [`build`]: graph construction (from config or by importing live data)
+//! - [`io`][]: persistence (file/S3 IO, versioning, parse/serialize)
+//! - [`build`][]: graph construction (from config or by importing live data)
 
 mod aws_credentials_provider;
 mod build;

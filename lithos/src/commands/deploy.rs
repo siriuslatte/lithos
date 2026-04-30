@@ -21,17 +21,17 @@ use crate::tui::progress::Spinner;
 
 fn run_command(dir: PathBuf, command: &str) -> std::io::Result<std::process::Output> {
     if cfg!(target_os = "windows") {
-        return Command::new("cmd")
+        Command::new("cmd")
             .current_dir(dir)
             .arg("/C")
             .arg(command)
-            .output();
+            .output()
     } else {
-        return Command::new("sh")
+        Command::new("sh")
             .current_dir(dir)
             .arg("-c")
             .arg(command)
-            .output();
+            .output()
     }
 }
 

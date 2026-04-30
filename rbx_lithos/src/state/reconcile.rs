@@ -161,7 +161,7 @@ fn classify<T>(result: Result<T, RobloxApiError>) -> VerificationStatus {
 }
 
 #[async_trait]
-impl<'a> LiveStateVerifier for RobloxLiveStateVerifier<'a> {
+impl LiveStateVerifier for RobloxLiveStateVerifier<'_> {
     async fn verify(&self, resource: &RobloxResource) -> VerificationStatus {
         let outputs = match resource.get_outputs() {
             Some(o) => o,
