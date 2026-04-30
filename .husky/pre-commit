@@ -1,0 +1,34 @@
+#!/usr/bin/env sh
+# Auto-format staged Rust files with rustfmt.
+#
+# Strategy: run `cargo fmt --all` once, then re-stage any Rust files that
+# were already in the index. This keeps the commit moving (the user said
+# they can't be bothered to run fmt manually) while avoiding partial
+# half-formatted commits.
+#
+# We only run when at least one .rs file is staged so we don't pay the
+# cargo-fmt startup cost on every docs / yaml / toml commit.
+
+set -e
+
+# Collect staged Rust files (Added/Copied/Modified/Renamed).
+staged_rs=$(git diff --cached --name-only --diff-filter=ACMR -- '*.rs' || true)
+
+if [ -z "$staged_rs" ]; then
+  exit 0
+fi
+
+if ! command -v cargo >/dev/null 2>&1; then
+  echo "pre-commit: cargo not on PATH; skipping rustfmt." >&2
+  exit 0
+fi
+
+echo "pre-commit: running cargo fmt on the workspace..."
+cargo fmt --all
+
+# Re-stage any of the originally-staged files that fmt touched.
+echo "$staged_rs" | while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  [ -f "$f" ] || continue
+  git add -- "$f"
+done

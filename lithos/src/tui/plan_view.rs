@@ -20,9 +20,7 @@ use std::time::{Duration, Instant};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
     execute,
-    terminal::{
-        disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
-    },
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{
     backend::CrosstermBackend,
@@ -178,7 +176,9 @@ fn draw_header(frame: &mut Frame, plan: &Plan, area: Rect) {
     let line = Line::from(vec![
         Span::styled(
             format!("+{} ", c.creates),
-            Style::default().fg(Color::Green).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Green)
+                .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
             format!("~{} ", c.updates),
@@ -209,7 +209,9 @@ fn draw_header(frame: &mut Frame, plan: &Plan, area: Rect) {
             .borders(Borders::ALL)
             .title(Span::styled(
                 " Lithos plan ",
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
             ))
             .border_style(Style::default().fg(Color::Cyan)),
     );
@@ -257,9 +259,9 @@ fn render_list(frame: &mut Frame, plan: &Plan, state: &mut ViewState, area: Rect
             ];
             if let Some(label) = row.risk.label() {
                 let style = match row.risk {
-                    RiskLevel::Destructive => Style::default()
-                        .fg(Color::Red)
-                        .add_modifier(Modifier::BOLD),
+                    RiskLevel::Destructive => {
+                        Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+                    }
                     RiskLevel::Caution => Style::default().fg(Color::Yellow),
                     RiskLevel::Safe => Style::default(),
                 };
