@@ -3,6 +3,7 @@
 use chrono::{Duration, Timelike, Utc};
 use yansi::Paint;
 
+use crate::diagnostics::{OperationAction, OperationError};
 use crate::resource_graph::{all_outputs, single_output};
 
 use super::super::{
@@ -11,16 +12,21 @@ use super::super::{
 
 pub(in crate::roblox_resource_manager) async fn get_create_price(
     mgr: &RobloxResourceManager,
+    resource_id: &str,
     inputs: RobloxInputs,
     dependency_outputs: Vec<RobloxOutputs>,
-) -> Result<Option<u32>, String> {
+) -> Result<Option<u32>, OperationError> {
+    let context = mgr.context_for_inputs(OperationAction::Create, resource_id, &inputs);
+
     match inputs {
         RobloxInputs::Badge(_) => {
             let experience = single_output!(dependency_outputs, RobloxOutputs::Experience);
-            let free_quota = mgr
-                .roblox_api
-                .get_create_badge_free_quota(experience.asset_id)
-                .await?;
+            let free_quota = mgr.wrap_api_result(
+                context.with_endpoint("badge-free-quota"),
+                mgr.roblox_api
+                    .get_create_badge_free_quota(experience.asset_id)
+                    .await,
+            )?;
 
             let quota_reset = format_quota_reset(
                 (Utc::now() + Duration::days(1))

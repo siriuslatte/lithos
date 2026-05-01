@@ -1,4 +1,4 @@
-﻿use std::sync::Arc;
+use std::sync::Arc;
 
 use rbx_api::{models::AssetId, RobloxApi};
 use rbx_auth::{RobloxCookieStore, RobloxCsrfTokenStore};
@@ -89,10 +89,9 @@ pub async fn run(project: Option<&str>, environment: Option<&str>, target_id: &s
     logger::end_action("Succeeded");
 
     logger::start_action("Saving state:");
-    state.environments.insert(
-        environment_config.label.clone(),
-        imported_graph.get_resource_list(),
-    );
+    state
+        .ensure_environment_mut(&environment_config.label)
+        .current = imported_graph.get_resource_list();
     match save_state(&project_path, &state_config, &state).await {
         Ok(_) => {}
         Err(e) => {

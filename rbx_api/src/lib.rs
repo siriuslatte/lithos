@@ -1,3 +1,4 @@
+pub mod api_keys;
 pub mod asset_aliases;
 pub mod asset_permissions;
 pub mod assets;

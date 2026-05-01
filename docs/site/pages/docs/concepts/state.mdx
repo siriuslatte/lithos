@@ -9,35 +9,52 @@ predictable diff.
 
 ## What is in the state file
 
-A YAML document keyed by environment, then by resource ID. For each
-resource, Lithos stores the inputs it deployed with and the outputs Roblox
-returned. Concretely:
+A versioned YAML document keyed by environment. In the current v7 format,
+each environment stores two things:
+
+- `current` — the resource graph from the latest successful deploy or undo.
+- `deployments` — a short history of checkpoints, results, and journals used
+  for recovery and `lithos undo`.
+
+Concretely:
 
 ```yaml filename=".lithos-state.yml"
+version: 7
 environments:
   dev:
-    experience_singleton:
-      inputs:
-        experience:
-          groupId: ~
-      outputs:
-        experience:
-          assetId: 3296599132
-          startPlaceId: 8667346609
-    place_start:
-      inputs: ~
-      outputs:
-        place:
-          assetId: 8667346609
-    placeFile_start:
-      inputs:
-        placeFile:
-          filePath: game.rbxlx
-          fileHash: 0c3a…
-      outputs:
-        placeFile:
-          version: 2
-    # … etc
+    current:
+      - id: experience_singleton
+        inputs:
+          experience:
+            groupId: ~
+        outputs:
+          experience:
+            assetId: 3296599132
+            startPlaceId: 8667346609
+      - id: placeFile_start
+        inputs:
+          placeFile:
+            filePath: game.rbxlx
+            fileHash: 0c3a…
+        outputs:
+          placeFile:
+            version: 2
+    deployments:
+      - id: deploy-1736370930123
+        kind: deploy
+        status: succeeded
+        startedAt: 2026-01-08T01:15:30Z
+        finishedAt: 2026-01-08T01:15:42Z
+        baseline: []
+        desired:
+          - id: experience_singleton
+        resulting:
+          - id: experience_singleton
+        journal:
+          - resourceId: experience_singleton
+            action: create
+            status: applied
+            summary: Applied create for experience_singleton
 ```
 
 You will rarely edit this by hand. The two things you should know:
@@ -48,11 +65,14 @@ You will rarely edit this by hand. The two things you should know:
 - **`outputs.assetId` is the canonical link between a Lithos resource and
   a real Roblox asset.** Lose it and the next deploy will re-create the
   asset from scratch.
+- **`deployments` is the recovery trail.** It records the last few deploys and
+  undos, including the baseline snapshot and a short journal of what changed.
+  `lithos undo` uses that history rather than guessing from Git.
 
 ## Where the state file lives
 
 Two options. They produce identical state; only the storage backend
-differs.
+differs. Both include the same current graph and rollback history.
 
 ### Local (the default)
 
@@ -119,7 +139,8 @@ for parallel writers.
 
 **Q: Can I delete the state file and start over?**
 Yes, but Lithos will think nothing exists and try to re-create every
-resource. The old assets stay on Roblox, orphaned. Better: use
+resource. The old assets stay on Roblox, orphaned, and you lose the rollback
+checkpoints recorded in `deployments`. Better: use
 `lithos import` to attach an existing experience to a fresh state file
 (experimental).
 

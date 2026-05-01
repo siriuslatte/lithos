@@ -95,14 +95,14 @@ pub async fn run(
             return 1;
         }
     };
-    let mut next_graph =
-        match get_desired_graph(project_path.as_path(), &target_config, &owner_config) {
-            Ok(v) => v,
-            Err(e) => {
-                logger::end_action(Paint::red(e));
-                return 1;
-            }
-        };
+    let next_graph = match get_desired_graph(project_path.as_path(), &target_config, &owner_config)
+    {
+        Ok(v) => v,
+        Err(e) => {
+            logger::end_action(Paint::red(e));
+            return 1;
+        }
+    };
     logger::end_action("Succeeded");
 
     // Optional live reconciliation. Off by default to keep `diff` fast and
@@ -172,7 +172,7 @@ pub async fn run(
                 && std::io::stdin().is_terminal();
 
             if interactive {
-                let plan = Plan::build(&diff, &current_graph, &next_graph, None);
+                let plan = Plan::build(&diff, &current_graph, &next_graph, None, None, None);
                 // `diff` is read-only so we surface the viewer in `Off`-style
                 // semantics: the decision is ignored, we just want the user
                 // to see and explore the plan.

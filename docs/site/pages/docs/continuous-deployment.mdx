@@ -10,8 +10,9 @@ CircleCI, Jenkins, etc.
 Two things make this setup robust:
 
 1. **Remote state.** With state in S3 or R2, every CI run sees the same
-   previous-state, regardless of which runner picked it up. Without remote
-   state, two runners can race and produce divergent state files.
+  previous-state, deployment checkpoints, and rollback history regardless of
+  which runner picked it up. Without remote state, two runners can race and
+  produce divergent state files.
 2. **Branch-gated environments.** A `prod` environment that only deploys
    from `main` cannot be deployed by a pull request, no matter how the
    workflow file is written.
@@ -98,6 +99,9 @@ A few details worth understanding:
 - **`--plain-preview`** drops ANSI color codes from the plan preview so
   GitHub's log viewer renders them legibly. Lithos auto-approves when
   stdout is not a TTY, so no `--yes` flag is needed.
+- **Preflight diagnostics run before apply** even in CI. Missing Open Cloud
+  scopes, wrong universe access, and other known deploy blockers fail the job
+  before any mutation is attempted.
 - **The branch → environment mapping in the script** is a belt-and-suspenders
   measure on top of the `branches:` constraint in `lithos.yml`. Either
   alone would prevent a `develop` push from touching `prod`, but both is
@@ -105,6 +109,11 @@ A few details worth understanding:
 - **Foreman pins the Lithos version** via `foreman.toml`. This is important:
   CI should not silently pick up a new Lithos release the day it's
   published.
+
+If a deploy finishes in a bad state, run `lithos undo --environment <label>
+--plain-preview` against the same remote state backend. Because the state file
+contains recent checkpoints, rollback can be initiated from a runner or an
+operator workstation without reconstructing an older YAML revision first.
 
 ## Pull-request previews
 

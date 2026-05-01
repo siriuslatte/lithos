@@ -8,6 +8,8 @@ use difference::Changeset;
 use serde::Serialize;
 use yansi::Paint;
 
+use crate::diagnostics::OperationError;
+
 macro_rules! all_outputs {
     ($expr:expr, $enum:path) => {{
         $expr
@@ -56,40 +58,60 @@ pub trait Resource<TInputs, TOutputs>: Clone {
 pub trait ResourceManager<TInputs, TOutputs> {
     async fn get_create_price(
         &self,
+        resource_id: &str,
         inputs: TInputs,
         dependency_outputs: Vec<TOutputs>,
-    ) -> Result<Option<u32>, String>;
+    ) -> Result<Option<u32>, OperationError>;
 
     async fn create(
         &self,
+        resource_id: &str,
         inputs: TInputs,
         dependency_outputs: Vec<TOutputs>,
         price: Option<u32>,
-    ) -> Result<TOutputs, String>;
+    ) -> Result<TOutputs, OperationError>;
 
     async fn get_update_price(
         &self,
+        resource_id: &str,
         inputs: TInputs,
         outputs: TOutputs,
         dependency_outputs: Vec<TOutputs>,
-    ) -> Result<Option<u32>, String>;
+    ) -> Result<Option<u32>, OperationError>;
 
     async fn update(
         &self,
+        resource_id: &str,
         inputs: TInputs,
         outputs: TOutputs,
         dependency_outputs: Vec<TOutputs>,
         price: Option<u32>,
-    ) -> Result<TOutputs, String>;
+    ) -> Result<TOutputs, OperationError>;
 
     async fn delete(
         &self,
+        resource_id: &str,
         outputs: TOutputs,
         dependency_outputs: Vec<TOutputs>,
+    ) -> Result<(), OperationError>;
+}
+
+#[async_trait(?Send)]
+pub trait EvaluateProgressHandler<TResource, TInputs, TOutputs>
+where
+    TResource: Resource<TInputs, TOutputs>,
+    TInputs: Clone,
+    TOutputs: Clone + Serialize,
+{
+    async fn persist_progress(
+        &mut self,
+        current_graph: &ResourceGraph<TResource, TInputs, TOutputs>,
+        results: &EvaluateResults,
+        failures: &[ResourceFailure],
     ) -> Result<(), String>;
 }
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct EvaluateResults {
     pub created_count: u32,
     pub updated_count: u32,
@@ -101,11 +123,50 @@ pub struct EvaluateResults {
 enum OperationResult<TOutputs> {
     Skipped(String),
     Noop,
-    Failed(String),
+    Failed(OperationError),
     SucceededDelete,
     SucceededCreate(TOutputs),
     SucceededUpdate(TOutputs),
 }
+
+#[derive(Debug, Clone)]
+pub struct ResourceFailure {
+    pub resource_id: ResourceId,
+    pub error: OperationError,
+}
+
+#[derive(Debug, Clone)]
+pub struct EvaluateError {
+    pub results: EvaluateResults,
+    pub failures: Vec<ResourceFailure>,
+}
+
+enum ProgressEvent {
+    None,
+    Mutation,
+}
+
+impl EvaluateError {
+    pub fn failure_count(&self) -> usize {
+        self.failures.len()
+    }
+
+    pub fn applied_mutation_count(&self) -> u32 {
+        self.results.created_count + self.results.updated_count + self.results.deleted_count
+    }
+}
+
+impl std::fmt::Display for EvaluateError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Failed {} change(s) while evaluating the resource graph.",
+            self.failures.len()
+        )
+    }
+}
+
+impl std::error::Error for EvaluateError {}
 
 fn get_changeset(previous_hash: &str, new_hash: &str) -> Changeset {
     Changeset::new(previous_hash, new_hash, "\n")
@@ -230,10 +291,11 @@ where
         &mut self,
         results: &mut EvaluateResults,
         failures_count: &mut u32,
+        failures: &mut Vec<ResourceFailure>,
         previous_graph: &ResourceGraph<TResource, TInputs, TOutputs>,
         resource_id: &str,
         operation_result: OperationResult<TOutputs>,
-    ) {
+    ) -> ProgressEvent {
         // TODO: Improve DRY here
         match operation_result {
             OperationResult::SucceededDelete => {
@@ -244,6 +306,7 @@ where
                     "Succeeded with outputs:",
                     get_changeset(&previous_resource.get_outputs_hash(), ""),
                 );
+                ProgressEvent::Mutation
             }
             OperationResult::SucceededCreate(outputs) => {
                 // Update the resource with the new outputs
@@ -255,6 +318,7 @@ where
                     "Succeeded with outputs:",
                     get_changeset("", &resource.get_outputs_hash()),
                 );
+                ProgressEvent::Mutation
             }
             OperationResult::SucceededUpdate(outputs) => {
                 // Update the resource with the new outputs
@@ -270,6 +334,7 @@ where
                         &resource.get_outputs_hash(),
                     ),
                 );
+                ProgressEvent::Mutation
             }
             OperationResult::Noop => {
                 // There was no need to create or update the resource. We will update the resource
@@ -283,6 +348,7 @@ where
                 );
 
                 results.noop_count += 1;
+                ProgressEvent::None
             }
             OperationResult::Skipped(reason) => {
                 // The resource was not evaluated. If the resource existed previously, we will copy
@@ -297,6 +363,7 @@ where
 
                 results.skipped_count += 1;
                 logger::end_action(format!("Skipped: {}", Paint::yellow(reason)));
+                ProgressEvent::None
             }
             OperationResult::Failed(error) => {
                 // An error occurred while creating or updating the resource. If the
@@ -310,9 +377,50 @@ where
                 }
 
                 *failures_count += 1;
-                logger::end_action(format!("Failed: {}", Paint::red(error)));
+                failures.push(ResourceFailure {
+                    resource_id: resource_id.to_owned(),
+                    error: error.clone(),
+                });
+                for diagnostic in error.diagnostics() {
+                    if let Some(detail) = &diagnostic.detail {
+                        logger::log(format!("  {}", detail));
+                    }
+                    for cause in &diagnostic.probable_causes {
+                        logger::log(format!("  likely: {}", cause));
+                    }
+                    for next_step in &diagnostic.next_steps {
+                        logger::log(format!("  next: {}", next_step));
+                    }
+                }
+                logger::end_action(format!("Failed: {}", Paint::red(error.summary())));
+                ProgressEvent::None
             }
         }
+    }
+
+    async fn persist_evaluate_progress(
+        &self,
+        progress: &mut dyn EvaluateProgressHandler<TResource, TInputs, TOutputs>,
+        results: &EvaluateResults,
+        failures: &[ResourceFailure],
+        resource_id: &str,
+    ) -> Result<(), EvaluateError> {
+        progress
+            .persist_progress(self, results, failures)
+            .await
+            .map_err(|error| EvaluateError {
+                results: results.clone(),
+                failures: vec![ResourceFailure {
+                    resource_id: resource_id.to_owned(),
+                    error: OperationError::new(
+                        format!(
+                            "Failed to persist deployment progress after applying {}\n\t{}",
+                            resource_id, error
+                        ),
+                        Vec::new(),
+                    ),
+                }],
+            })
     }
 
     async fn evaluate_delete<TManager>(
@@ -343,6 +451,7 @@ where
 
         match manager
             .delete(
+                resource_id,
                 resource
                     .get_outputs()
                     .expect("Existing resource should have outputs."),
@@ -417,6 +526,7 @@ where
 
             let price = match manager
                 .get_update_price(
+                    resource_id,
                     resource.get_inputs(),
                     outputs.clone(),
                     dependency_outputs.clone(),
@@ -443,7 +553,13 @@ where
             };
 
             match manager
-                .update(resource.get_inputs(), outputs, dependency_outputs, price)
+                .update(
+                    resource_id,
+                    resource.get_inputs(),
+                    outputs,
+                    dependency_outputs,
+                    price,
+                )
                 .await
             {
                 Ok(outputs) => OperationResult::SucceededUpdate(outputs),
@@ -469,7 +585,11 @@ where
             logger::log_changeset(get_changeset("", &inputs_hash));
 
             let price = match manager
-                .get_create_price(resource.get_inputs(), dependency_outputs.clone())
+                .get_create_price(
+                    resource_id,
+                    resource.get_inputs(),
+                    dependency_outputs.clone(),
+                )
                 .await
             {
                 Ok(Some(price)) if price > 0 => {
@@ -492,7 +612,12 @@ where
             };
 
             match manager
-                .create(resource.get_inputs(), dependency_outputs, price)
+                .create(
+                    resource_id,
+                    resource.get_inputs(),
+                    dependency_outputs,
+                    price,
+                )
                 .await
             {
                 Ok(outputs) => OperationResult::SucceededCreate(outputs),
@@ -506,15 +631,39 @@ where
         previous_graph: &ResourceGraph<TResource, TInputs, TOutputs>,
         manager: &mut TManager,
         allow_purchases: bool,
-    ) -> Result<EvaluateResults, String>
+    ) -> Result<EvaluateResults, EvaluateError>
+    where
+        TManager: ResourceManager<TInputs, TOutputs>,
+    {
+        self.evaluate_with_progress(previous_graph, manager, allow_purchases, None)
+            .await
+    }
+
+    pub async fn evaluate_with_progress<TManager>(
+        &mut self,
+        previous_graph: &ResourceGraph<TResource, TInputs, TOutputs>,
+        manager: &mut TManager,
+        allow_purchases: bool,
+        mut progress: Option<&mut dyn EvaluateProgressHandler<TResource, TInputs, TOutputs>>,
+    ) -> Result<EvaluateResults, EvaluateError>
     where
         TManager: ResourceManager<TInputs, TOutputs>,
     {
         let mut results = EvaluateResults::default();
         let mut failures_count: u32 = 0;
+        let mut failures: Vec<ResourceFailure> = Vec::new();
 
         // Iterate over previous resources in reverse order so that leaf resources are removed first
-        let mut previous_resource_order = previous_graph.get_topological_order()?;
+        let mut previous_resource_order =
+            previous_graph
+                .get_topological_order()
+                .map_err(|error| EvaluateError {
+                    results: results.clone(),
+                    failures: vec![ResourceFailure {
+                        resource_id: "resource-graph".to_owned(),
+                        error: OperationError::new(error.clone(), Vec::new()),
+                    }],
+                })?;
         previous_resource_order.reverse();
         for resource_id in previous_resource_order.iter() {
             if self.resources.contains_key(resource_id) {
@@ -524,41 +673,70 @@ where
             let operation_result: OperationResult<TOutputs> = self
                 .evaluate_delete(previous_graph, manager, resource_id)
                 .await;
-            self.handle_operation_result(
+            let progress_event = self.handle_operation_result(
                 &mut results,
                 &mut failures_count,
+                &mut failures,
                 previous_graph,
                 resource_id,
                 operation_result,
             );
+            if matches!(progress_event, ProgressEvent::Mutation) {
+                if let Some(progress_handler) = progress.as_mut() {
+                    self.persist_evaluate_progress(
+                        *progress_handler,
+                        &results,
+                        &failures,
+                        resource_id,
+                    )
+                    .await?;
+                }
+            }
         }
 
-        let resource_order = self.get_topological_order()?;
+        let resource_order = self
+            .get_topological_order()
+            .map_err(|error| EvaluateError {
+                results: results.clone(),
+                failures: vec![ResourceFailure {
+                    resource_id: "resource-graph".to_owned(),
+                    error: OperationError::new(error.clone(), Vec::new()),
+                }],
+            })?;
         for resource_id in resource_order.iter() {
             let operation_result = self
                 .evaluate_create_or_update(previous_graph, manager, resource_id, allow_purchases)
                 .await;
-            self.handle_operation_result(
+            let progress_event = self.handle_operation_result(
                 &mut results,
                 &mut failures_count,
+                &mut failures,
                 previous_graph,
                 resource_id,
                 operation_result,
             );
+            if matches!(progress_event, ProgressEvent::Mutation) {
+                if let Some(progress_handler) = progress.as_mut() {
+                    self.persist_evaluate_progress(
+                        *progress_handler,
+                        &results,
+                        &failures,
+                        resource_id,
+                    )
+                    .await?;
+                }
+            }
         }
 
         if failures_count > 0 {
-            Err(format!(
-                "Failed {} changes(s) while evaluating the resource graph. See above for more details.",
-                failures_count
-            ))
+            Err(EvaluateError { results, failures })
         } else {
             Ok(results)
         }
     }
 
     pub fn diff(
-        &mut self,
+        &self,
         previous_graph: &ResourceGraph<TResource, TInputs, TOutputs>,
     ) -> Result<ResourceGraphDiff, String> {
         let mut diff = ResourceGraphDiff {
@@ -644,6 +822,190 @@ where
         }
 
         Ok(diff)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use async_trait::async_trait;
+
+    use super::*;
+
+    #[derive(Clone)]
+    struct TestResource {
+        id: String,
+        inputs: String,
+        outputs: Option<String>,
+        dependencies: Vec<ResourceId>,
+    }
+
+    impl TestResource {
+        fn new(id: &str) -> Self {
+            Self {
+                id: id.to_owned(),
+                inputs: id.to_owned(),
+                outputs: None,
+                dependencies: Vec::new(),
+            }
+        }
+    }
+
+    impl Resource<String, String> for TestResource {
+        fn get_id(&self) -> ResourceId {
+            self.id.clone()
+        }
+
+        fn get_inputs_hash(&self) -> String {
+            self.inputs.clone()
+        }
+
+        fn get_outputs_hash(&self) -> String {
+            self.outputs.clone().unwrap_or_default()
+        }
+
+        fn get_inputs(&self) -> String {
+            self.inputs.clone()
+        }
+
+        fn get_outputs(&self) -> Option<String> {
+            self.outputs.clone()
+        }
+
+        fn get_dependencies(&self) -> Vec<ResourceId> {
+            self.dependencies.clone()
+        }
+
+        fn set_outputs(&mut self, outputs: String) {
+            self.outputs = Some(outputs);
+        }
+    }
+
+    struct TestManager;
+
+    #[async_trait]
+    impl ResourceManager<String, String> for TestManager {
+        async fn get_create_price(
+            &self,
+            _resource_id: &str,
+            _inputs: String,
+            _dependency_outputs: Vec<String>,
+        ) -> Result<Option<u32>, OperationError> {
+            Ok(None)
+        }
+
+        async fn create(
+            &self,
+            resource_id: &str,
+            _inputs: String,
+            _dependency_outputs: Vec<String>,
+            _price: Option<u32>,
+        ) -> Result<String, OperationError> {
+            Ok(format!("created:{}", resource_id))
+        }
+
+        async fn get_update_price(
+            &self,
+            _resource_id: &str,
+            _inputs: String,
+            _outputs: String,
+            _dependency_outputs: Vec<String>,
+        ) -> Result<Option<u32>, OperationError> {
+            Ok(None)
+        }
+
+        async fn update(
+            &self,
+            resource_id: &str,
+            _inputs: String,
+            _outputs: String,
+            _dependency_outputs: Vec<String>,
+            _price: Option<u32>,
+        ) -> Result<String, OperationError> {
+            Ok(format!("updated:{}", resource_id))
+        }
+
+        async fn delete(
+            &self,
+            _resource_id: &str,
+            _outputs: String,
+            _dependency_outputs: Vec<String>,
+        ) -> Result<(), OperationError> {
+            Ok(())
+        }
+    }
+
+    #[derive(Default)]
+    struct RecordingProgress {
+        applied_counts: Vec<u32>,
+    }
+
+    #[async_trait(?Send)]
+    impl EvaluateProgressHandler<TestResource, String, String> for RecordingProgress {
+        async fn persist_progress(
+            &mut self,
+            _current_graph: &ResourceGraph<TestResource, String, String>,
+            results: &EvaluateResults,
+            _failures: &[ResourceFailure],
+        ) -> Result<(), String> {
+            self.applied_counts
+                .push(results.created_count + results.updated_count + results.deleted_count);
+            Ok(())
+        }
+    }
+
+    struct FailingProgress {
+        calls: u32,
+    }
+
+    #[async_trait(?Send)]
+    impl EvaluateProgressHandler<TestResource, String, String> for FailingProgress {
+        async fn persist_progress(
+            &mut self,
+            _current_graph: &ResourceGraph<TestResource, String, String>,
+            _results: &EvaluateResults,
+            _failures: &[ResourceFailure],
+        ) -> Result<(), String> {
+            self.calls += 1;
+            Err("disk full".to_owned())
+        }
+    }
+
+    #[tokio::test]
+    async fn evaluate_with_progress_persists_after_each_mutation() {
+        let previous_graph = ResourceGraph::new(&[] as &[TestResource]);
+        let mut next_graph =
+            ResourceGraph::new(&[TestResource::new("alpha"), TestResource::new("beta")]);
+        let mut manager = TestManager;
+        let mut progress = RecordingProgress::default();
+
+        let results = next_graph
+            .evaluate_with_progress(&previous_graph, &mut manager, false, Some(&mut progress))
+            .await
+            .unwrap();
+
+        assert_eq!(results.created_count, 2);
+        assert_eq!(progress.applied_counts, vec![1, 2]);
+    }
+
+    #[tokio::test]
+    async fn evaluate_with_progress_returns_error_when_persistence_fails() {
+        let previous_graph = ResourceGraph::new(&[] as &[TestResource]);
+        let mut next_graph = ResourceGraph::new(&[TestResource::new("alpha")]);
+        let mut manager = TestManager;
+        let mut progress = FailingProgress { calls: 0 };
+
+        let error = next_graph
+            .evaluate_with_progress(&previous_graph, &mut manager, false, Some(&mut progress))
+            .await
+            .unwrap_err();
+
+        assert_eq!(error.applied_mutation_count(), 1);
+        assert_eq!(error.failure_count(), 1);
+        assert_eq!(error.failures[0].resource_id, "alpha");
+        assert!(error.failures[0]
+            .error
+            .summary()
+            .contains("Failed to persist deployment progress after applying alpha"));
     }
 }
 

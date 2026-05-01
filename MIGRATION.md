@@ -13,7 +13,7 @@ fallbacks.
 | `mantle.yml`              | `lithos.yml`                | Both are read; `lithos.yml` wins          |
 | `.mantle-state.yml`       | `.lithos-state.yml`         | Both are read; `lithos`-named wins        |
 | `<key>.mantle-state.yml`  | `<key>.lithos-state.yml`    | Same fallback for remote S3 keys          |
-| `MANTLE_OPEN_CLOUD_API_KEY` | `LITHOS_OPEN_CLOUD_API_KEY` | Both honored; `LITHOS_*` wins             |
+| `MANTLE_OPEN_CLOUD_API_KEY` | `LITHOS_OPEN_CLOUD_API_KEY` | Both honored; `LITHOS_*` wins. `ROBLOX_OPEN_CLOUD_API_KEY` is also accepted as an alias. |
 | `MANTLE_AWS_ACCESS_KEY_ID`  | `LITHOS_AWS_ACCESS_KEY_ID`  | Both honored; `LITHOS_*` wins             |
 | `MANTLE_AWS_SECRET_ACCESS_KEY` | `LITHOS_AWS_SECRET_ACCESS_KEY` | Both honored; `LITHOS_*` wins        |
 | `MANTLE_AWS_INHERIT_IAM_ROLE` | `LITHOS_AWS_INHERIT_IAM_ROLE` | Both honored                          |
@@ -24,8 +24,10 @@ When Lithos loads a project that uses the legacy names it logs a `warning:` line
 the next save:
 
 - **State files** are written under the new `.lithos-state.yml` name. The legacy
-  `.mantle-state.yml` file is left in place so that you can recover or roll back. After verifying
-  the new file is correct, you can delete the legacy file.
+  `.mantle-state.yml` file is left in place so that you can recover or roll back. New Lithos
+  writes use the v7 format, which stores both the current environment graph and recent deployment
+  checkpoints for `lithos undo`. After verifying the new file is correct, you can delete the legacy
+  file.
 - **Remote state** keys are written to `<key>.lithos-state.yml`. The legacy object remains in S3
   until you delete it.
 - **Project config** is never rewritten by Lithos; rename `mantle.yml` to `lithos.yml` at your
@@ -36,7 +38,8 @@ the next save:
 1. Update your CI to invoke `lithos` instead of `mantle`.
 2. Rename `mantle.yml` → `lithos.yml`.
 3. Set `LITHOS_OPEN_CLOUD_API_KEY` and `LITHOS_AWS_*` secrets alongside (or instead of) the
-   legacy `MANTLE_*` ones.
+  legacy `MANTLE_*` ones. Lithos also accepts `ROBLOX_OPEN_CLOUD_API_KEY`, but `LITHOS_*` is the
+  preferred name in project docs and CI.
 4. Run `lithos deploy` once. Confirm a fresh `.lithos-state.yml` (or remote object) is produced.
 5. Delete the legacy `.mantle-state.yml` after verifying the new state.
 
