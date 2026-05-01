@@ -150,6 +150,11 @@ cargo clippy -- -D warnings
 cargo fmt
 ```
 
+Run `pnpm install` once at the repo root to enable the versioned Husky git
+hooks. The pre-commit hook auto-formats staged Rust files and blocks
+Rust/Cargo commits unless `cargo clippy --workspace --all-targets -- -D warnings`
+passes.
+
 Integration tests under `specs/*.yml` hit real Roblox endpoints. They're opt-in and gated by environment variables; CI runs them in a separate workflow against a dedicated test account.
 
 ## Contributing

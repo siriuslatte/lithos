@@ -144,7 +144,7 @@ mod tests {
 
         let resulting_experience = experience(100);
         let resulting_activation = activation(true, &resulting_experience);
-        let mut resulting_graph = ResourceGraph::new(&[resulting_experience, resulting_activation]);
+        let resulting_graph = ResourceGraph::new(&[resulting_experience, resulting_activation]);
 
         let evaluate_error = EvaluateError {
             results: EvaluateResults {
@@ -172,7 +172,7 @@ mod tests {
             }],
         };
 
-        let journal = build_failure_journal(&baseline_graph, &mut resulting_graph, &evaluate_error);
+        let journal = build_failure_journal(&baseline_graph, &resulting_graph, &evaluate_error);
 
         assert!(journal.iter().any(|entry| {
             entry.resource_id == "experienceActivation_singleton"
