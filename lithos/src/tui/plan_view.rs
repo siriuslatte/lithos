@@ -157,12 +157,20 @@ fn event_loop(terminal: &mut Term, plan: &Plan) -> io::Result<Decision> {
 }
 
 fn draw(frame: &mut Frame, plan: &Plan, state: &mut ViewState) {
+    let header_height = if plan.preflight.has_blocking()
+        || !plan.preflight.warnings.is_empty()
+        || plan.rollback.is_some()
+    {
+        5
+    } else {
+        3
+    };
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3), // header
-            Constraint::Min(5),    // body
-            Constraint::Length(3), // footer / hints
+            Constraint::Length(header_height), // header
+            Constraint::Min(5),                // body
+            Constraint::Length(3),             // footer / hints
         ])
         .split(frame.area());
 
@@ -173,7 +181,7 @@ fn draw(frame: &mut Frame, plan: &Plan, state: &mut ViewState) {
 
 fn draw_header(frame: &mut Frame, plan: &Plan, area: Rect) {
     let c = &plan.counts;
-    let line = Line::from(vec![
+    let mut lines = vec![Line::from(vec![
         Span::styled(
             format!("+{} ", c.creates),
             Style::default()
@@ -202,9 +210,42 @@ fn draw_header(frame: &mut Frame, plan: &Plan, area: Rect) {
             format!("?{}", c.drift_unknown),
             Style::default().fg(Color::Yellow),
         ),
-    ]);
+    ])];
 
-    let header = Paragraph::new(line).block(
+    if plan.preflight.has_blocking() || !plan.preflight.warnings.is_empty() {
+        lines.push(Line::from(vec![
+            Span::styled(
+                format!("preflight !{} ", plan.preflight.blocking.len()),
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!("?{}", plan.preflight.warnings.len()),
+                Style::default().fg(Color::Yellow),
+            ),
+        ]));
+    }
+
+    if let Some(rollback) = plan.rollback.as_ref() {
+        lines.push(Line::from(vec![
+            Span::styled(
+                if rollback.ready {
+                    "rollback ready: "
+                } else {
+                    "rollback note: "
+                },
+                Style::default()
+                    .fg(if rollback.ready {
+                        Color::Green
+                    } else {
+                        Color::Yellow
+                    })
+                    .add_modifier(Modifier::BOLD),
+            ),
+            Span::raw(rollback.summary.clone()),
+        ]));
+    }
+
+    let header = Paragraph::new(lines).block(
         Block::default()
             .borders(Borders::ALL)
             .title(Span::styled(

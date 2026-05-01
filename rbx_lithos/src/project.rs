@@ -223,8 +223,11 @@ pub async fn load_project(
     let state = get_previous_state(project_path.as_path(), &config, environment_config).await?;
 
     // Get our resource graphs
-    let previous_graph =
-        ResourceGraph::new(state.environments.get(&environment_config.label).unwrap());
+    let previous_graph = ResourceGraph::new(
+        state
+            .current_resources(&environment_config.label)
+            .unwrap_or(&Vec::new()),
+    );
 
     Ok(Some(Project {
         current_graph: previous_graph,

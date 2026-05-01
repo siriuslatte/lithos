@@ -15,8 +15,8 @@ you need to use Lithos productively.
 
 1. **A configuration file** (`lithos.yml`) — the source of truth. What you
    want to exist.
-2. **A state file** (`.lithos-state.yml`, local or remote) — what actually
-   exists, as far as Lithos last knew.
+2. **A state file** (`.lithos-state.yml`, local or remote) — the current
+  graph Lithos believes exists, plus a short deployment history.
 3. **A live API** (Roblox + Open Cloud) — what actually exists *right now*.
 
 Every command is a function of those three inputs. `deploy` reconciles them
@@ -28,6 +28,11 @@ plan a diff, apply it, write new state.
   thinks exists; the live API is what really exists.** When they disagree,
   Lithos calls that *drift*, and reconciles it before doing anything
   destructive.
+</Callout>
+
+<Callout type="info">
+  Lithos also stores recent deployment checkpoints in state. That history is
+  what powers `lithos undo`.
 </Callout>
 
 ## What "infrastructure-as-code" buys you
@@ -42,7 +47,9 @@ The practical consequence:
 
 - Every deploy is **reviewable**: a plan preview shows exactly which fields
   on which resources will change, before any byte hits Roblox.
-- Every change is **rollback-able**: revert the YAML, redeploy.
+- Every change is **rollback-able**: revert the YAML and redeploy when you are
+  intentionally changing desired state, or run `lithos undo` to drive Roblox
+  back to the last recorded checkpoint.
 - Every environment is **reproducible**: `dev` and `prod` come from the same
   config with declarative overrides, not parallel checklists.
 - Every CI pipeline is **boring**: a single binary, a state file in S3 or
@@ -77,8 +84,8 @@ $ lithos deploy
 
 That creates a Roblox experience, uploads `game.rbxlx` as its start place,
 sets the place name and genre, and writes a state file recording the
-resulting asset IDs. Re-run the command and Lithos does nothing — state
-matches config, nothing to do.
+resulting asset IDs plus the deployment checkpoint. Re-run the command and
+Lithos does nothing — state matches config, nothing to do.
 
 Change the place name in the YAML and re-run, and Lithos updates exactly
 that one field, in place, with no other side effects.

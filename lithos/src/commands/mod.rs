@@ -4,4 +4,5 @@ pub mod diff;
 pub mod download;
 pub mod import;
 pub mod outputs;
+pub mod undo;
 pub mod upload;

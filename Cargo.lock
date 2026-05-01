@@ -1916,7 +1916,7 @@ checksum = "23fb14cb19457329c82206317a5663005a4d404783dc74f4252769b0d5f42856"
 
 [[package]]
 name = "lithos"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clap 2.34.0",
  "crossterm 0.28.1",

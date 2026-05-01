@@ -24,11 +24,14 @@ lithos deploy projects/getting-started --environment dev
 # 4. Preview future changes without applying them.
 lithos diff projects/getting-started --environment dev
 
-# 5. Tear it down when you're done.
+# 5. Roll back to the last checkpoint if a deploy goes bad.
+lithos undo projects/getting-started --environment dev
+
+# 6. Tear it down when you're done.
 lithos destroy projects/getting-started --environment dev
 ```
 
-If you're not signed into Roblox Studio on the same machine, set the `ROBLOSECURITY` environment variable. Set `LITHOS_OPEN_CLOUD_API_KEY` if you want to use Open Cloud endpoints (e.g. notifications).
+If you're not signed into Roblox Studio on the same machine, set the `ROBLOSECURITY` environment variable. Set `LITHOS_OPEN_CLOUD_API_KEY` if you want to use Open Cloud endpoints such as place publishing and notifications. Lithos also accepts `ROBLOX_OPEN_CLOUD_API_KEY`.
 
 ## Tinkering
 
@@ -37,6 +40,7 @@ The fastest way to learn Lithos is to edit a `lithos.yml`, run `lithos diff --en
 - Bump a developer product's `price` and see the field-level diff.
 - Add a third badge.
 - Toggle `targetAccess` on the dev environment between `private` and `friends`.
+- Break a deploy on purpose, then inspect the preflight diagnostics and use `lithos undo --environment dev` to roll back.
 - Move the state file to S3 by uncommenting the `state.remote` block.
 
 Existing Mantle projects keep working — Lithos reads `mantle.yml` and `.mantle-state.yml` as fallbacks. See the top-level
