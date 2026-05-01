@@ -44,7 +44,9 @@ lithos deploy --environment dev
 ## What it does
 
 - **Plans before it touches anything.** `deploy` shows a preview of every create / update / delete it's about to perform, with field-level summaries for risky resources (a price change on a developer product, a name change on a game pass) and explicit warnings on destructive operations. You can approve or cancel before a single byte hits Roblox.
+- **Runs preflight checks before apply.** Lithos catches common Roblox deploy failures early: missing Open Cloud keys, wrong universe scopes, unsupported target-access combinations, and place files that are close to Roblox's upload limits.
 - **Verifies live state.** Before applying, Lithos checks the persisted state against the actual Roblox API. If something was deleted manually in the dashboard, Lithos notices and re-creates it instead of failing on an update.
+- **Keeps rollback checkpoints.** Every deploy records the last known good graph plus a short apply journal so `lithos undo` can drive an environment back toward that snapshot if a deploy fails or turns out to be bad.
 - **Manages multi-place experiences.** Start places, side places, place files, configurations, thumbnails, icons — all of it.
 - **Handles the assets too.** Images, audio, badges, game passes, developer products, notifications, asset aliases, social links, spatial voice — the things that usually get forgotten on launch day.
 - **Stores state where you want it.** Locally next to your project, or remotely in S3 / Google Cloud Storage so a team or a CI runner can cooperate on the same experience.
@@ -60,7 +62,7 @@ The simplest path:
 ```toml
 # foreman.toml
 [tools]
-lithos = { source = "siriuslatte/lithos", version = "0.1.0" }
+lithos = { source = "siriuslatte/lithos", version = "0.2.0" }
 ```
 
 **Manual**
@@ -91,13 +93,14 @@ lithos deploy projects/getting-started --environment dev
 
 The first run creates an experience and a place; subsequent runs only push what changed. Run `lithos diff --environment dev` any time to see what would happen without actually deploying.
 
-If you're not signed into Roblox Studio on the same machine, set `ROBLOSECURITY` (and optionally `LITHOS_OPEN_CLOUD_API_KEY` for Open Cloud endpoints).
+If you're not signed into Roblox Studio on the same machine, set `ROBLOSECURITY` and, for Open Cloud-backed endpoints such as place publishing, `LITHOS_OPEN_CLOUD_API_KEY` (Lithos also accepts `ROBLOX_OPEN_CLOUD_API_KEY`).
 
 ## CLI
 
 ```
 lithos deploy        Apply your project's configuration to a Roblox environment
 lithos diff          Show what deploy would change
+lithos undo          Restore the last recorded good snapshot for an environment
 lithos destroy       Tear down everything Lithos created in an environment
 lithos outputs       Print resource IDs (place IDs, asset IDs, …) for use in your game
 lithos import        Adopt an existing experience into Lithos
@@ -114,6 +117,11 @@ lithos state         Manage local / remote state files
 
 In CI / piped contexts Lithos auto-approves after printing a plain summary, so
 existing scripts keep working without changes.
+
+If a deploy turns out to be bad, `lithos undo --environment <label>` uses the
+last checkpoint recorded for that environment. Undo is best-effort rather than
+transactional: Lithos imports live Roblox state, previews the diff back to the
+checkpoint, and then applies that rollback plan.
 
 ## Repository layout
 
@@ -141,6 +149,11 @@ cargo test --workspace --lib --bins
 cargo clippy -- -D warnings
 cargo fmt
 ```
+
+Run `pnpm install` once at the repo root to enable the versioned Husky git
+hooks. The pre-commit hook auto-formats staged Rust files and blocks
+Rust/Cargo commits unless `cargo clippy --workspace --all-targets -- -D warnings`
+passes.
 
 Integration tests under `specs/*.yml` hit real Roblox endpoints. They're opt-in and gated by environment variables; CI runs them in a separate workflow against a dedicated test account.
 

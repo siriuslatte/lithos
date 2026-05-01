@@ -1,34 +1,49 @@
 #!/usr/bin/env sh
-# Auto-format staged Rust files with rustfmt.
+# Auto-format staged Rust files with rustfmt and gate Rust/Cargo commits on
+# workspace clippy.
 #
 # Strategy: run `cargo fmt --all` once, then re-stage any Rust files that
 # were already in the index. This keeps the commit moving (the user said
 # they can't be bothered to run fmt manually) while avoiding partial
 # half-formatted commits.
 #
-# We only run when at least one .rs file is staged so we don't pay the
-# cargo-fmt startup cost on every docs / yaml / toml commit.
+# We only run when at least one Rust/Cargo-relevant file is staged so we don't
+# pay the cargo startup cost on every docs / yaml / md commit.
 
 set -e
 
-# Collect staged Rust files (Added/Copied/Modified/Renamed).
-staged_rs=$(git diff --cached --name-only --diff-filter=ACMR -- '*.rs' || true)
+# Collect staged paths (Added/Copied/Modified/Renamed).
+staged_paths=$(git diff --cached --name-only --diff-filter=ACMR || true)
 
-if [ -z "$staged_rs" ]; then
+if [ -z "$staged_paths" ]; then
   exit 0
 fi
+
+# Only gate commits that touch Rust or Cargo-related files.
+relevant_paths=$(printf '%s\n' "$staged_paths" | grep -E '(^|/).*\.rs$|(^|/)(Cargo\.toml|Cargo\.lock|rust-toolchain\.toml)$' || true)
+
+if [ -z "$relevant_paths" ]; then
+  exit 0
+fi
+
+staged_rs=$(printf '%s\n' "$staged_paths" | grep -E '(^|/).*\.rs$' || true)
 
 if ! command -v cargo >/dev/null 2>&1; then
-  echo "pre-commit: cargo not on PATH; skipping rustfmt." >&2
-  exit 0
+  echo "pre-commit: cargo is required for Rust/Cargo commits." >&2
+  exit 1
 fi
 
-echo "pre-commit: running cargo fmt on the workspace..."
-cargo fmt --all
+if [ -n "$staged_rs" ]; then
+  echo "pre-commit: running cargo fmt on the workspace..."
+  cargo fmt --all
 
-# Re-stage any of the originally-staged files that fmt touched.
-echo "$staged_rs" | while IFS= read -r f; do
-  [ -n "$f" ] || continue
-  [ -f "$f" ] || continue
-  git add -- "$f"
-done
+  # Re-stage any of the originally-staged files that fmt touched.
+  echo "$staged_rs" | while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    [ -f "$f" ] || continue
+    git add -- "$f"
+  done
+fi
+
+echo "pre-commit: running cargo clippy on the workspace..."
+cargo clippy --workspace --all-targets -- -D warnings

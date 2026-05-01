@@ -17,5 +17,5 @@ is the entry point.
 - `resource_graph` — the typed resource DAG and its `ResourceManager` trait.
 - `roblox_resource_manager` — the Roblox-specific implementation of the graph
   (creates / updates / deletes via `rbx_api` and `rbxcloud`).
-- `state` — versioned state file format (v1–v6), reconciliation, and live
-  drift verification.
+- `state` — versioned state file format (v1–v7), reconciliation, deployment
+  history, rollback helpers, and live drift verification.

@@ -168,6 +168,9 @@ fn interactive_flow(plan: &Plan) -> Decision {
 fn render_rich(plan: &Plan) {
     let mut body: Vec<String> = Vec::new();
     body.push(format_header(plan));
+
+    append_diagnostic_summary(plan, &mut body, true);
+    append_rollback_summary(plan, &mut body, true);
     body.push(String::new());
 
     if plan.rows.is_empty() {
@@ -225,6 +228,8 @@ fn render_plain(plan: &Plan) {
     eprintln!();
     eprintln!("Lithos plan");
     eprintln!("{}", strip_color(&format_header(plan)));
+    render_plain_diagnostic_summary(plan);
+    render_plain_rollback_summary(plan);
     eprintln!();
     if plan.rows.is_empty() {
         eprintln!("  No changes. Your infrastructure is up to date.");
@@ -251,15 +256,153 @@ fn render_plain(plan: &Plan) {
 
 fn format_header(plan: &Plan) -> String {
     let c = &plan.counts;
+    let preflight_summary = if plan.preflight.has_blocking() || !plan.preflight.warnings.is_empty()
+    {
+        format!(
+            "   {} preflight!   {} preflight?",
+            Paint::red(format!("!{}", plan.preflight.blocking.len())).bold(),
+            Paint::yellow(format!("?{}", plan.preflight.warnings.len())).bold(),
+        )
+    } else {
+        String::new()
+    };
     format!(
-        "{} create   {} update   {} delete   {} dep   {} drift!   {} drift?",
+        "{} create   {} update   {} delete   {} dep   {} drift!   {} drift?{}",
         Paint::green(format!("+{}", c.creates)).bold(),
         Paint::yellow(format!("~{}", c.updates)).bold(),
         Paint::red(format!("-{}", c.deletes)).bold(),
         Paint::new(format!("○{}", c.dependency_changes)).dimmed(),
         Paint::red(format!("!{}", c.drift_recreate)).bold(),
         Paint::yellow(format!("?{}", c.drift_unknown)),
+        preflight_summary,
     )
+}
+
+fn append_diagnostic_summary(plan: &Plan, body: &mut Vec<String>, rich: bool) {
+    if plan.preflight.blocking.is_empty() && plan.preflight.warnings.is_empty() {
+        return;
+    }
+
+    body.push(if rich {
+        format!("{}", Paint::new("Preflight").bold())
+    } else {
+        "Preflight".to_owned()
+    });
+
+    for diagnostic in &plan.preflight.blocking {
+        body.push(format!(
+            "  {} {}",
+            if rich {
+                format!("{}", Paint::red("!").bold())
+            } else {
+                "!".to_owned()
+            },
+            diagnostic.summary
+        ));
+        if let Some(detail) = &diagnostic.detail {
+            body.push(format!(
+                "      {}",
+                if rich {
+                    format!("{}", Paint::new(detail).dimmed())
+                } else {
+                    detail.clone()
+                }
+            ));
+        }
+    }
+
+    for diagnostic in &plan.preflight.warnings {
+        body.push(format!(
+            "  {} {}",
+            if rich {
+                format!("{}", Paint::yellow("?").bold())
+            } else {
+                "?".to_owned()
+            },
+            diagnostic.summary
+        ));
+        if let Some(detail) = &diagnostic.detail {
+            body.push(format!(
+                "      {}",
+                if rich {
+                    format!("{}", Paint::new(detail).dimmed())
+                } else {
+                    detail.clone()
+                }
+            ));
+        }
+    }
+}
+
+fn append_rollback_summary(plan: &Plan, body: &mut Vec<String>, rich: bool) {
+    let Some(rollback) = plan.rollback.as_ref() else {
+        return;
+    };
+
+    body.push(if rich {
+        format!("{}", Paint::new("Rollback").bold())
+    } else {
+        "Rollback".to_owned()
+    });
+
+    let marker = if rollback.ready {
+        if rich {
+            format!("{}", Paint::green("+").bold())
+        } else {
+            "+".to_owned()
+        }
+    } else if rich {
+        format!("{}", Paint::yellow("?").bold())
+    } else {
+        "?".to_owned()
+    };
+    body.push(format!("  {} {}", marker, rollback.summary));
+    for detail in &rollback.details {
+        body.push(format!(
+            "      {}",
+            if rich {
+                format!("{}", Paint::new(detail).dimmed())
+            } else {
+                detail.clone()
+            }
+        ));
+    }
+}
+
+fn render_plain_diagnostic_summary(plan: &Plan) {
+    if plan.preflight.blocking.is_empty() && plan.preflight.warnings.is_empty() {
+        return;
+    }
+
+    eprintln!("Preflight");
+    for diagnostic in &plan.preflight.blocking {
+        eprintln!("  ! {}", diagnostic.summary);
+        if let Some(detail) = &diagnostic.detail {
+            eprintln!("      {}", detail);
+        }
+    }
+    for diagnostic in &plan.preflight.warnings {
+        eprintln!("  ? {}", diagnostic.summary);
+        if let Some(detail) = &diagnostic.detail {
+            eprintln!("      {}", detail);
+        }
+    }
+}
+
+fn render_plain_rollback_summary(plan: &Plan) {
+    let Some(rollback) = plan.rollback.as_ref() else {
+        return;
+    };
+
+    eprintln!("Rollback");
+    eprintln!(
+        "  {} {}",
+        if rollback.ready { "+" } else { "?" },
+        rollback.summary
+    );
+    for detail in &rollback.details {
+        eprintln!("      {}", detail);
+    }
 }
 
 fn colorize_marker(kind: ActionKind) -> Paint<&'static str> {
@@ -352,6 +495,8 @@ mod tests {
                 creates: 1,
                 ..Default::default()
             },
+            preflight: Default::default(),
+            rollback: None,
         }
     }
 
