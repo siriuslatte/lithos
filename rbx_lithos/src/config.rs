@@ -1,10 +1,11 @@
 //! Project configuration types.
 //!
-//! This module defines the data shape of the user-facing `lithos.yml` file
-//! (and its legacy `mantle.yml` alias). Two focused submodules handle
+//! This module defines the data shape of the user-facing `lithos.yml` and
+//! `lithos.json` files (plus the legacy `mantle.yml` alias). Two focused
+//! submodules handle
 //! adjacent concerns:
 //!
-//! - [`loading`] – reads and parses the YAML file from disk.
+//! - [`loading`] – reads and parses the YAML/JSON file from disk.
 //! - [`mapping`] – pure `From` impls converting these config types into the
 //!   request models used by `rbx_api`.
 

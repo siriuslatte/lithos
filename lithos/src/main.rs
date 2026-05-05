@@ -9,9 +9,6 @@ mod ui;
 
 #[cfg(windows)]
 fn enable_utf8_console() {
-    // Tell the Windows console that our output is UTF-8 so that the box-drawing
-    // characters used by the logger render correctly instead of as mojibake
-    // (e.g. "╭─" appearing as "â•­â”€").
     extern "system" {
         fn SetConsoleOutputCP(wCodePageID: u32) -> i32;
         fn SetConsoleCP(wCodePageID: u32) -> i32;
