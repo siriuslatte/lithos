@@ -134,11 +134,14 @@ fn get_app() -> App<'static, 'static> {
                     Arg::with_name("format")
                         .long("format")
                         .short("f")
-                        .help("The format to print the outputs in")
+                        .help("The format to print the outputs in. If omitted, infer Luau from --output and otherwise default to json.")
                         .value_name("FORMAT")
                         .takes_value(true)
-                        .possible_values(&["json","yaml"])
-                        .default_value("json"))
+                        .possible_values(&["json", "yaml", "lua", "luau"]))
+                .arg(
+                    Arg::with_name("roblox_ts")
+                        .long("roblox-ts")
+                        .help("When generating Luau to a file, also write a matching .d.ts sidecar for roblox-ts."))
         )
         .subcommand(
             SubCommand::with_name("import")
@@ -263,7 +266,8 @@ pub async fn run_with(args: Vec<String>) -> i32 {
                 outputs_matches.value_of("PROJECT"),
                 outputs_matches.value_of("environment"),
                 outputs_matches.value_of("output"),
-                outputs_matches.value_of("format").unwrap(),
+                outputs_matches.value_of("format"),
+                outputs_matches.is_present("roblox_ts"),
             )
             .await
         }
