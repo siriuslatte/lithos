@@ -3,12 +3,14 @@
   "compilerOptions": {
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
+    "ignoreDeprecations": "6.0",
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "strict": true,
     "lib": ["ESNext"],
     "module": "ESNext",
+    "types": ["node"],
     "target": "es6",
     "moduleResolution": "node"
   },

@@ -1,6 +1,13 @@
+const {
+  createTransformLithosConfigExamples,
+} = require('./remark-plugins/transform-lithos-config-examples');
+
 const withNextra = require('nextra')({
   theme: 'nextra-theme-docs',
   themeConfig: './theme.config.jsx',
+  mdxOptions: {
+    remarkPlugins: [createTransformLithosConfigExamples()],
+  },
 });
 
 // Configure for static export so the site can be hosted on GitHub Pages.

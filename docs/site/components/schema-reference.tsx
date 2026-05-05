@@ -1,4 +1,4 @@
-import { Fragment, ReactNode, useMemo } from 'react';
+import { Fragment, ReactNode } from 'react';
 import { ProcessedSchema } from 'lib';
 import { Code } from 'nextra/components';
 import { Callout, Tabs, Tab, useMDXComponents } from 'nextra-theme-docs';
@@ -8,6 +8,7 @@ import { Tooltip } from './tooltip';
 import { PropertyType } from 'lib';
 import { MDXRemote } from 'next-mdx-remote';
 import GithubSlugger from 'github-slugger';
+import { ConfigFormatTab, ConfigFormatTabs } from './config-format-tabs';
 
 function Heading({
   level,
@@ -263,7 +264,14 @@ export function SchemaReference({ schema }: SchemaReferenceProps) {
                   <MDXRemote
                     key={property.id}
                     compiledSource={property.compiledContent}
-                    components={{ ...components, Callout, Tab, Tabs }}
+                    components={{
+                      ...components,
+                      Callout,
+                      Tab,
+                      Tabs,
+                      ConfigFormatTabs,
+                      ConfigFormatTab,
+                    }}
                   />
                 )}
               </div>
@@ -273,7 +281,14 @@ export function SchemaReference({ schema }: SchemaReferenceProps) {
                   <MDXRemote
                     key={index}
                     compiledSource={example}
-                    components={{ ...components, Callout, Tab, Tabs }}
+                    components={{
+                      ...components,
+                      Callout,
+                      Tab,
+                      Tabs,
+                      ConfigFormatTabs,
+                      ConfigFormatTab,
+                    }}
                   />
                 ))}
               </aside>
