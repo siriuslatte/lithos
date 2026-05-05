@@ -17,7 +17,7 @@ changes and the recommended order in which to adopt them.
 | Mantle | Lithos | Compatibility |
 | --- | --- | --- |
 | `mantle` binary | `lithos` binary | Same subcommands, same flags. |
-| `mantle.yml` | `lithos.yml` | Both are read; `lithos.yml` wins. |
+| `mantle.yml` | `lithos.yml` or `lithos.json` | All are read; discovery checks `lithos.yml`, then `lithos.json`, then legacy `mantle.yml`. |
 | `.mantle-state.yml` | `.lithos-state.yml` | Both are read; `lithos`-named wins. New writes always go to the Lithos name. |
 | `<key>.mantle-state.yml` (S3/R2) | `<key>.lithos-state.yml` | Same fallback for remote keys. |
 | `MANTLE_OPEN_CLOUD_API_KEY` | `LITHOS_OPEN_CLOUD_API_KEY` | Both honored; `LITHOS_*` wins. |
@@ -76,15 +76,17 @@ Run `foreman install`. Update any scripts or CI commands that invoke
 $ lithos deploy --environment dev
 ```
 
-You will see a `warning:` line if Lithos picks up a `mantle.yml` or
+You will see a `warning:` line if Lithos picks up a `mantle.yml`, or if it finds
+multiple discovered project configs and has to apply its precedence rule, or
 `.mantle-state.yml`. The deploy itself proceeds normally. After it
 completes, a fresh `.lithos-state.yml` is written next to (not replacing)
 the legacy file.
 
 ### 3. Rename the config file
 
-Rename `mantle.yml` → `lithos.yml`. Lithos prefers the Lithos-named file
-when both are present; renaming silences the legacy-file warning.
+Rename `mantle.yml` → `lithos.yml` or `lithos.json`. Lithos prefers
+`lithos.yml` when both Lithos-named files are present, and prefers either of
+them over legacy `mantle.yml`; renaming silences the legacy-file warning.
 
 ### 4. Update environment variables
 
@@ -117,7 +119,7 @@ your bucket.
 ## What does **not** change
 
 - The config schema. Every key valid in `mantle.yml` is valid in
-  `lithos.yml`. The [configuration reference](/docs/configuration/reference)
+  `lithos.yml` and `lithos.json`. The [configuration reference](/docs/configuration/reference)
   is the same shape Mantle had, with later additions.
 - The state-file format. A Mantle state file is a Lithos state file with a
   different name.

@@ -19,10 +19,24 @@ export async function getSchemasSnippetContent(compileMdx: CompileMdx) {
   const docsBase =
     process.env.NEXT_PUBLIC_DOCS_BASE_URL ||
     'https://siriuslatte.github.io/lithos';
-  const vscodeSnippet = `\`\`\`json
+  const schemaUrl = `${docsBase}/schemas/${releases[0]?.version}/schema.json`;
+  const vscodeSnippet = `### VS Code YAML files
+
+\`\`\`json
 "yaml.schemas": {
-  "${docsBase}/schemas/${releases[0]?.version}/schema.json": ["lithos.yml", "mantle.yml"]
+  "${schemaUrl}": ["lithos.yml", "mantle.yml"]
 }
+\`\`\`
+
+### VS Code JSON files
+
+\`\`\`json
+"json.schemas": [
+  {
+    "fileMatch": ["lithos.json"],
+    "url": "${schemaUrl}"
+  }
+]
 \`\`\``;
   return (await compileMdx(vscodeSnippet)).result;
 }

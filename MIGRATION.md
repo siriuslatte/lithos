@@ -10,7 +10,7 @@ fallbacks.
 | Old (Mantle)              | New (Lithos)                | Behavior                                  |
 | ------------------------- | --------------------------- | ----------------------------------------- |
 | `mantle` binary           | `lithos` binary             | Same subcommands, same flags              |
-| `mantle.yml`              | `lithos.yml`                | Both are read; `lithos.yml` wins          |
+| `mantle.yml`              | `lithos.yml` / `lithos.json` | All are read; discovery checks `lithos.yml`, then `lithos.json`, then legacy `mantle.yml` |
 | `.mantle-state.yml`       | `.lithos-state.yml`         | Both are read; `lithos`-named wins        |
 | `<key>.mantle-state.yml`  | `<key>.lithos-state.yml`    | Same fallback for remote S3 keys          |
 | `MANTLE_OPEN_CLOUD_API_KEY` | `LITHOS_OPEN_CLOUD_API_KEY` | Both honored; `LITHOS_*` wins             |
@@ -28,13 +28,13 @@ the next save:
   the new file is correct, you can delete the legacy file.
 - **Remote state** keys are written to `<key>.lithos-state.yml`. The legacy object remains in S3
   until you delete it.
-- **Project config** is never rewritten by Lithos; rename `mantle.yml` to `lithos.yml` at your
-  convenience.
+- **Project config** is never rewritten by Lithos; rename `mantle.yml` to `lithos.yml` or
+  `lithos.json` at your convenience.
 
 ## Recommended steps
 
 1. Update your CI to invoke `lithos` instead of `mantle`.
-2. Rename `mantle.yml` → `lithos.yml`.
+2. Rename `mantle.yml` → `lithos.yml` or `lithos.json`.
 3. Set `LITHOS_OPEN_CLOUD_API_KEY` and `LITHOS_AWS_*` secrets alongside (or instead of) the
    legacy `MANTLE_*` ones.
 4. Run `lithos deploy` once. Confirm a fresh `.lithos-state.yml` (or remote object) is produced.
