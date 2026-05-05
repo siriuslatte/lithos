@@ -102,7 +102,7 @@ lithos deploy        Apply your project's configuration to a Roblox environment
 lithos diff          Show what deploy would change
 lithos undo          Restore the last recorded good snapshot for an environment
 lithos destroy       Tear down everything Lithos created in an environment
-lithos outputs       Print resource IDs (place IDs, asset IDs, …) for use in your game
+lithos outputs       Print resource IDs (place IDs, asset IDs, …) or generate game-ready Luau modules
 lithos import        Adopt an existing experience into Lithos
 lithos state         Manage local / remote state files
 ```
