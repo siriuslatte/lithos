@@ -84,6 +84,13 @@ Steps 1–4 are read-only (green). Nothing on Roblox changes until you
 confirm at step 5 (amber). This is what makes destructive mistakes
 recoverable: you always see them coming.
 
+<Callout type="info">
+  The diagram is intentionally simplified. Current `deploy` runs a preflight
+  diagnostics pass before confirmation, writes a rollback checkpoint before
+  apply, and saves both the new `current` graph and deployment journal to
+  state afterward.
+</Callout>
+
 ## Operation kinds
 
 Each node in the diff is exactly one of these:

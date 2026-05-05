@@ -2,14 +2,15 @@ import { Callout } from 'nextra-theme-docs';
 
 # CLI reference
 
-Every Lithos workflow is one of five subcommands. This page is the working
-reference; for the full machine-readable surface, run
-`lithos help [SUBCOMMAND]`.
+Every Lithos workflow is one of six subcommands. This page is the working
+reference; for the full machine-readable surface, run `lithos --help` or
+`lithos <subcommand> --help`.
 
 | Command | Purpose |
 | --- | --- |
 | [`deploy`](#deploy) | Reconcile state with config and apply the diff. |
 | [`diff`](#diff) | Print the diff without applying it. |
+| [`undo`](#undo) | Restore the last recorded checkpoint for an environment. |
 | [`outputs`](#outputs) | Print the outputs (asset IDs, etc.) of the last deploy. |
 | [`destroy`](#destroy) | Remove every resource Lithos manages for an environment. |
 | [`import`](#import) | Adopt an existing experience into a Lithos project. |
@@ -29,8 +30,9 @@ $ lithos deploy [PROJECT] --environment <label> [flags]
 The default workflow. `deploy` runs the pipeline described in
 **[The resource graph](/docs/concepts/resource-graph#how-a-deploy-unfolds)**:
 load config and state, reconcile state against the live Roblox API, build
-the desired graph, render a plan preview, prompt for confirmation, and
-apply the diff in dependency order.
+the desired graph, run preflight diagnostics, render a plan preview, prompt
+for confirmation, checkpoint the current environment state, and apply the diff
+in dependency order.
 
 ### Live reconciliation
 
@@ -64,6 +66,19 @@ When stdout is an interactive terminal, deploy prompts to confirm before
 applying. Press `y` or Enter to apply; anything else cancels. In
 non-interactive contexts (CI, piped output) deploy auto-approves after
 printing a plain summary, so existing scripts continue to work.
+
+### Preflight diagnostics and checkpoints
+
+Before approval, `deploy` runs a preflight pass over the plan and auth
+context. This catches the common Roblox failures that are otherwise vague at
+runtime: missing Open Cloud keys, missing `universe-places.write`, API keys
+that do not cover the target universe, unsupported group/public/friends
+combinations, and place files that are close to Roblox's size limits.
+
+If any preflight diagnostic is blocking, deploy stops before mutating
+anything. If preflight passes, Lithos records a checkpoint of the last known
+good graph so `lithos undo` can roll the environment back toward that
+snapshot later.
 
 ### Useful flags
 
@@ -100,6 +115,31 @@ $ lithos diff --environment dev --live
 
 Use `--live` when you suspect drift; use plain `diff` when you just want
 to know what your YAML changes would do.
+
+## `undo`
+
+```text
+$ lithos undo [PROJECT] --environment <label> [flags]
+```
+
+Best-effort rollback to the most recent checkpoint Lithos recorded for an
+environment. `undo` does not read old YAML or Git history. Instead it:
+
+1. Loads the baseline snapshot stored before the last deploy or undo.
+2. Imports the live Roblox experience so rollback plans against reality,
+   not stale state.
+3. Runs the same preflight diagnostics and plan preview as `deploy`.
+4. Applies the diff back toward that snapshot and records the result.
+
+Use the same preview flags as `deploy`: `--yes`, `--no-preview`, and
+`--plain-preview`. `--allow-purchases` is also supported in case rollback
+needs to recreate a paid resource.
+
+<Callout type="info">
+  Roblox deploys are not transactional. `undo` is therefore best-effort:
+  it reconciles live state and then drives resources back toward the last
+  checkpoint Lithos recorded.
+</Callout>
 
 ## `outputs`
 
@@ -177,7 +217,7 @@ then point `import` at production.
 | Code | Meaning |
 | --- | --- |
 | `0` | Success. Includes the case "nothing to do." |
-| `1` | A user-facing error. Bad config, auth failure, conflicting state, etc. The error message names the cause. |
-| `2` | An unexpected internal error. [File an issue](https://github.com/siriuslatte/lithos/issues) with the surrounding output. |
+| `1` | A user-facing failure. Bad config, auth failure, apply failure, conflicting state, etc. The error message names the cause. |
+| `2` | The command was cancelled at the preview / confirmation step. |
 
 In CI, treat any non-zero exit as fatal.

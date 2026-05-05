@@ -10,7 +10,7 @@ Lithos — they live in environment variables and `.env` files you control.
 | Credential | Used for | Required for |
 | --- | --- | --- |
 | `ROBLOSECURITY` | Legacy Roblox APIs (place uploads, configurations, social links, etc.) | Almost every deploy. |
-| `LITHOS_OPEN_CLOUD_API_KEY` | Roblox Open Cloud (asset uploads, place publish, etc.) | Most deploys; required for asset uploads. |
+| `LITHOS_OPEN_CLOUD_API_KEY` | Roblox Open Cloud (asset uploads, place publish, etc.) | Most deploys; required for asset uploads. `ROBLOX_OPEN_CLOUD_API_KEY` and `MANTLE_OPEN_CLOUD_API_KEY` are also accepted. |
 | `LITHOS_AWS_ACCESS_KEY_ID` / `LITHOS_AWS_SECRET_ACCESS_KEY` / `LITHOS_AWS_INHERIT_IAM_ROLE` | S3 / Cloudflare R2 remote state | Only when using [remote state](/docs/remote-state). |
 
 Lithos still honors the legacy `MANTLE_*` names. See
@@ -58,7 +58,7 @@ or new machines):
 3. Copy the value of the `.ROBLOSECURITY` cookie.
 4. In CI, store it as a secret named `ROBLOSECURITY`.
 
-## `LITHOS_OPEN_CLOUD_API_KEY`
+## `LITHOS_OPEN_CLOUD_API_KEY` (preferred)
 
 Roblox Open Cloud is the modern, scoped, server-to-server API. You will
 want a key for almost every project:
@@ -71,14 +71,21 @@ want a key for almost every project:
    - `asset:read`, `asset:write` — for uploading image and audio assets.
 5. Optionally restrict the key by IP. CI runners often have stable
    egress IPs you can pin.
-6. Set the key:
+6. Set the key.
 
-   ```shell filename=".env"
-   LITHOS_OPEN_CLOUD_API_KEY="…"
-   ```
+Example `.env` entry:
 
-Lithos prints a clear error naming the missing scope when an API call
-fails for a permissions reason — read it carefully before regenerating.
+```shell filename=".env"
+LITHOS_OPEN_CLOUD_API_KEY="…"
+```
+
+Lithos also accepts `ROBLOX_OPEN_CLOUD_API_KEY` and the legacy
+`MANTLE_OPEN_CLOUD_API_KEY`, but `LITHOS_OPEN_CLOUD_API_KEY` is the
+preferred name for docs and CI.
+
+Deploy preflight now introspects this key before apply when possible. If the
+key is missing, lacks `universe-places.write`, or is scoped to the wrong
+universe, Lithos stops early and prints the likely cause plus next steps.
 
 ## AWS credentials (only for remote state)
 

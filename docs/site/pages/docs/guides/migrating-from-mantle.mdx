@@ -20,7 +20,7 @@ changes and the recommended order in which to adopt them.
 | `mantle.yml` | `lithos.yml` or `lithos.json` | All are read; discovery checks `lithos.yml`, then `lithos.json`, then legacy `mantle.yml`. |
 | `.mantle-state.yml` | `.lithos-state.yml` | Both are read; `lithos`-named wins. New writes always go to the Lithos name. |
 | `<key>.mantle-state.yml` (S3/R2) | `<key>.lithos-state.yml` | Same fallback for remote keys. |
-| `MANTLE_OPEN_CLOUD_API_KEY` | `LITHOS_OPEN_CLOUD_API_KEY` | Both honored; `LITHOS_*` wins. |
+| `MANTLE_OPEN_CLOUD_API_KEY` | `LITHOS_OPEN_CLOUD_API_KEY` | Both honored; `LITHOS_*` wins. `ROBLOX_OPEN_CLOUD_API_KEY` is also accepted. |
 | `MANTLE_AWS_ACCESS_KEY_ID` | `LITHOS_AWS_ACCESS_KEY_ID` | Both honored; `LITHOS_*` wins. |
 | `MANTLE_AWS_SECRET_ACCESS_KEY` | `LITHOS_AWS_SECRET_ACCESS_KEY` | Both honored; `LITHOS_*` wins. |
 | `MANTLE_AWS_INHERIT_IAM_ROLE` | `LITHOS_AWS_INHERIT_IAM_ROLE` | Both honored. |
@@ -40,6 +40,9 @@ fixes; some are new capabilities.
   developer products, game passes, badges, notifications, experiences, and
   places are flagged explicitly. Cancel before confirmation and nothing
   happens. See **[CLI reference](/docs/commands#deploy)**.
+- **Preflight diagnostics and rollback checkpoints.** Lithos validates the
+  common Roblox failure modes before apply, stores the previous environment
+  graph as a checkpoint, and provides `lithos undo` for best-effort recovery.
 - **`lithos diff --live`.** Run the same reconciliation pass that `deploy`
   runs, but only print the diff — useful for "what would happen if I
   deployed right now?" without prompting or writing.
@@ -64,7 +67,7 @@ Update `foreman.toml`:
 ```toml filename="foreman.toml"
 [tools]
 - mantle = { source = "blake-mealey/mantle", version = "0.11" }
-+ lithos = { source = "siriuslatte/lithos", version = "0.1" }
++ lithos = { source = "siriuslatte/lithos", version = "0.2.0" }
 ```
 
 Run `foreman install`. Update any scripts or CI commands that invoke
@@ -92,7 +95,9 @@ them over legacy `mantle.yml`; renaming silences the legacy-file warning.
 
 In your CI secrets, in your `.env` files, and in your team docs, replace
 the `MANTLE_*` variables with `LITHOS_*`. Both work, but `LITHOS_*` is
-preferred and `MANTLE_*` will be removed in a future release.
+preferred and `MANTLE_*` will be removed in a future release. Lithos also
+accepts `ROBLOX_OPEN_CLOUD_API_KEY`, but `LITHOS_OPEN_CLOUD_API_KEY` is the
+recommended project-facing name.
 
 ```diff filename=".env"
 - MANTLE_OPEN_CLOUD_API_KEY="…"
@@ -113,7 +118,8 @@ your bucket.
 <Callout type="warning">
   Do not delete the legacy state file before running at least one
   successful Lithos deploy. The legacy file is your rollback path while
-  you verify the migration.
+  you verify the migration. After that first Lithos deploy, the new
+  `.lithos-state.yml` will also contain Lithos-managed rollback checkpoints.
 </Callout>
 
 ## What does **not** change

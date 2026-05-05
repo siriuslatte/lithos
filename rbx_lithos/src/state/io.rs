@@ -23,6 +23,7 @@ use crate::config::{Config, EnvironmentConfig, RemoteStateConfig, StateConfig};
 use super::{
     aws_credentials_provider::AwsCredentialsProvider, v1::ResourceStateV1, v2::ResourceStateV2,
     v3::ResourceStateV3, v4::ResourceStateV4, v5::ResourceStateV5, v6::ResourceStateV6,
+    v7::ResourceStateV7,
 };
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -47,9 +48,11 @@ enum VersionedResourceState {
     V5(ResourceStateV5),
     #[serde(rename = "6")]
     V6(ResourceStateV6),
+    #[serde(rename = "7")]
+    V7(ResourceStateV7),
 }
 
-pub type ResourceStateVLatest = ResourceStateV6;
+pub type ResourceStateVLatest = ResourceStateV7;
 
 const STATE_SUFFIX: &str = ".lithos-state.yml";
 const LEGACY_STATE_SUFFIX: &str = ".mantle-state.yml";
@@ -209,27 +212,34 @@ pub async fn get_state_from_source(
 
     // Migrate previous state formats
     Ok(match state {
-        Some(ResourceState::Unversioned(state)) => ResourceStateV6::from(ResourceStateV5::from(
-            ResourceStateV4::from(ResourceStateV3::from(ResourceStateV2::from(state))),
-        )),
-        Some(ResourceState::Versioned(VersionedResourceState::V1(state))) => {
-            ResourceStateV6::from(ResourceStateV5::from(ResourceStateV4::from(
-                ResourceStateV3::from(ResourceStateV2::from(state)),
+        Some(ResourceState::Unversioned(state)) => {
+            ResourceStateV7::from(ResourceStateV6::from(ResourceStateV5::from(
+                ResourceStateV4::from(ResourceStateV3::from(ResourceStateV2::from(state))),
             )))
         }
-        Some(ResourceState::Versioned(VersionedResourceState::V2(state))) => ResourceStateV6::from(
-            ResourceStateV5::from(ResourceStateV4::from(ResourceStateV3::from(state))),
-        ),
-        Some(ResourceState::Versioned(VersionedResourceState::V3(state))) => {
-            ResourceStateV6::from(ResourceStateV5::from(ResourceStateV4::from(state)))
+        Some(ResourceState::Versioned(VersionedResourceState::V1(state))) => {
+            ResourceStateV7::from(ResourceStateV6::from(ResourceStateV5::from(
+                ResourceStateV4::from(ResourceStateV3::from(ResourceStateV2::from(state))),
+            )))
         }
+        Some(ResourceState::Versioned(VersionedResourceState::V2(state))) => {
+            ResourceStateV7::from(ResourceStateV6::from(ResourceStateV5::from(
+                ResourceStateV4::from(ResourceStateV3::from(state)),
+            )))
+        }
+        Some(ResourceState::Versioned(VersionedResourceState::V3(state))) => ResourceStateV7::from(
+            ResourceStateV6::from(ResourceStateV5::from(ResourceStateV4::from(state))),
+        ),
         Some(ResourceState::Versioned(VersionedResourceState::V4(state))) => {
-            ResourceStateV6::from(ResourceStateV5::from(state))
+            ResourceStateV7::from(ResourceStateV6::from(ResourceStateV5::from(state)))
         }
         Some(ResourceState::Versioned(VersionedResourceState::V5(state))) => {
-            ResourceStateV6::from(state)
+            ResourceStateV7::from(ResourceStateV6::from(state))
         }
-        Some(ResourceState::Versioned(VersionedResourceState::V6(state))) => state,
+        Some(ResourceState::Versioned(VersionedResourceState::V6(state))) => {
+            ResourceStateV7::from(state)
+        }
+        Some(ResourceState::Versioned(VersionedResourceState::V7(state))) => state,
         None => ResourceStateVLatest {
             environments: BTreeMap::new(),
         },
@@ -255,9 +265,10 @@ pub async fn get_previous_state(
             "No previous state for environment {}",
             Paint::cyan(environment_config.label.clone())
         ));
-        state
-            .environments
-            .insert(environment_config.label.clone(), Vec::new());
+        state.environments.insert(
+            environment_config.label.clone(),
+            super::v7::EnvironmentStateV7::default(),
+        );
     }
 
     Ok(state)
@@ -314,7 +325,7 @@ fn serialize_state(state: &ResourceStateVLatest) -> Result<Vec<u8>, String> {
                                 utc.format("%FT%TZ")
                             ).as_bytes().to_vec();
 
-    let state_data = serde_yaml::to_vec(&ResourceState::Versioned(VersionedResourceState::V6(
+    let state_data = serde_yaml::to_vec(&ResourceState::Versioned(VersionedResourceState::V7(
         state.to_owned(),
     )))
     .map_err(|e| format!("Unable to serialize state\n\t{}", e))?;

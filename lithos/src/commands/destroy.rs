@@ -72,12 +72,13 @@ pub async fn run(project: Option<&str>, environment: Option<&str>) -> i32 {
     logger::start_action("Saving state:");
     let resource_list = next_graph.get_resource_list();
     if resource_list.is_empty() {
-        state.environments.remove(&environment_config.label);
+        state
+            .ensure_environment_mut(&environment_config.label)
+            .current = Vec::new();
     } else {
-        state.environments.insert(
-            environment_config.label.clone(),
-            next_graph.get_resource_list(),
-        );
+        state
+            .ensure_environment_mut(&environment_config.label)
+            .current = next_graph.get_resource_list();
     }
     match save_state(&project_path, &state_config, &state).await {
         Ok(_) => {}

@@ -7,6 +7,7 @@
 use std::collections::BTreeMap;
 
 use rbx_lithos::{
+    diagnostics::DiagnosticReport,
     resource_graph::{Resource, ResourceGraph, ResourceGraphDiff},
     roblox_resource_manager::{RobloxInputs, RobloxOutputs, RobloxResource},
     state::{ReconciliationReport, VerificationStatus},
@@ -123,6 +124,15 @@ impl PlanCounts {
 pub struct Plan {
     pub rows: Vec<PlanRow>,
     pub counts: PlanCounts,
+    pub preflight: DiagnosticReport,
+    pub rollback: Option<RollbackSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RollbackSummary {
+    pub ready: bool,
+    pub summary: String,
+    pub details: Vec<String>,
 }
 
 impl Plan {
@@ -134,6 +144,8 @@ impl Plan {
         previous_graph: &ResourceGraph<RobloxResource, RobloxInputs, RobloxOutputs>,
         next_graph: &ResourceGraph<RobloxResource, RobloxInputs, RobloxOutputs>,
         reconciliation: Option<&ReconciliationReport>,
+        preflight: Option<&DiagnosticReport>,
+        rollback: Option<RollbackSummary>,
     ) -> Self {
         let prev_inputs = collect_inputs(previous_graph);
         let next_inputs = collect_inputs(next_graph);
@@ -259,7 +271,12 @@ impl Plan {
             }
         }
 
-        Plan { rows, counts }
+        Plan {
+            rows,
+            counts,
+            preflight: preflight.cloned().unwrap_or_default(),
+            rollback,
+        }
     }
 
     #[allow(dead_code)]

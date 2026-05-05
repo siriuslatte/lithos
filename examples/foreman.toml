@@ -1,4 +1,4 @@
 [tools]
 # `lithos` is the CLI binary. Releases are published from
 # https://github.com/siriuslatte/lithos/releases.
-lithos = { source = "siriuslatte/lithos", version = "0.1" }
+lithos = { source = "siriuslatte/lithos", version = "0.2.0" }

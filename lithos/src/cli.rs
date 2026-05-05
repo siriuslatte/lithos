@@ -111,6 +111,39 @@ fn get_app() -> App<'static, 'static> {
                         .takes_value(true))
         )
         .subcommand(
+            SubCommand::with_name("undo")
+                .about("Best-effort rollback to the last known good snapshot for a Lithos environment.")
+                .arg(
+                    Arg::with_name("PROJECT")
+                        .index(1)
+                        .help(PROJECT_HELP)
+                        .takes_value(true))
+                .arg(
+                    Arg::with_name("environment")
+                        .long("environment")
+                        .short("e")
+                        .help("The label of the environment to roll back. If not specified, attempts to match the current git branch to each environment's `branches` property.")
+                        .value_name("ENVIRONMENT")
+                        .takes_value(true))
+                .arg(
+                    Arg::with_name("allow_purchases")
+                        .long("allow-purchases")
+                        .help("Gives Lithos permission to make purchases with Robux if restoring the last known good state requires re-creating paid resources."))
+                .arg(
+                    Arg::with_name("yes")
+                        .long("yes")
+                        .short("y")
+                        .help("Skip the interactive plan confirmation prompt and apply immediately. In non-interactive (CI/piped) environments undo already auto-approves; this flag silences the auto-approve notice."))
+                .arg(
+                    Arg::with_name("no_preview")
+                        .long("no-preview")
+                        .help("Skip the rollback plan preview entirely. Implies --yes."))
+                .arg(
+                    Arg::with_name("plain_preview")
+                        .long("plain-preview")
+                        .help("Show a plain-text rollback summary instead of the rich color-coded preview. Useful for CI logs."))
+        )
+        .subcommand(
             SubCommand::with_name("outputs")
                 .about("Prints a Lithos environment's outputs to the console or a file in a machine-readable format.")
                 .arg(
@@ -254,6 +287,27 @@ pub async fn run_with(args: Vec<String>) -> i32 {
             commands::destroy::run(
                 destroy_matches.value_of("PROJECT"),
                 destroy_matches.value_of("environment"),
+            )
+            .await
+        }
+        ("undo", Some(undo_matches)) => {
+            let no_preview = undo_matches.is_present("no_preview");
+            let plain_preview = undo_matches.is_present("plain_preview");
+            let preview_options = PreviewOptions {
+                mode: if no_preview {
+                    PreviewMode::Off
+                } else if plain_preview {
+                    PreviewMode::Plain
+                } else {
+                    PreviewMode::Auto
+                },
+                assume_yes: undo_matches.is_present("yes") || no_preview,
+            };
+            commands::undo::run(
+                undo_matches.value_of("PROJECT"),
+                undo_matches.value_of("environment"),
+                undo_matches.is_present("allow_purchases"),
+                preview_options,
             )
             .await
         }
