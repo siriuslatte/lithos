@@ -26,13 +26,16 @@ export async function getStaticProps() {
 All Lithos commands accept a `PROJECT` argument which tells Lithos where to look for your config file.
 Lithos uses the following rules to find your config file:
 
-1. If the `PROJECT` argument was _not provided_, use the `lithos.yml` file in the current directory as the
-   config file (if it exists).
-2. If the `PROJECT` argument was _a directory_, use the `lithos.yml` file in that directory as
-   the config file (if it exists).
+1. If the `PROJECT` argument was _not provided_, use the first config file found in the current directory in
+  this order: `lithos.yml`, `lithos.yaml`, `mantle.yml`, `mantle.yaml`.
+2. If the `PROJECT` argument was _a directory_, use the first config file found in that directory in the
+  same order: `lithos.yml`, `lithos.yaml`, `mantle.yml`, `mantle.yaml`.
 3. If the `PROJECT` argument was _a file_, use it as the config file (if it exists).
 
 If no config file is found, Lithos will exit with an error code.
+
+Lithos prefers the Lithos-named files when both Lithos and Mantle variants are present, which lets you keep a
+legacy file around during migration while silencing warnings once `lithos.yml` or `lithos.yaml` exists.
 
 ## File path resolution
 
@@ -70,6 +73,49 @@ target:
 
 Lithos will correctly find the referenced files no matter where you execute Lithos from.
 
+The same project-root resolution also applies to `.env` files: Lithos loads the `.env` next to the resolved
+config file in addition to any `.env` in the current working directory.
+
+## Outputs command defaults
+
+`lithos outputs` can be configured from the project file instead of requiring
+the full output target on every command line.
+
+Add a top-level `outputs` block:
+
+```yaml filename="project/lithos.yml"
+outputs:
+  writeDir: src/shared/generated
+  outputName: lithosOutputs
+  format: luau
+  robloxTs: true
+```
+
+Or, for easier migration from tools like Asphalt, use the alias `codegen`
+plus snake_case field names:
+
+```yaml filename="project/lithos.yml"
+codegen:
+  write_dir: src/shared/generated
+  output_name: lithosOutputs
+  format: luau
+  typescript: true
+```
+
+Supported properties:
+
+- `path`: full output file path.
+- `writeDir` + `outputName`: build the path from a project-relative directory and file name.
+- `format`: `json`, `yaml`, `yml`, `lua`, or `luau`.
+- `robloxTs`: write a `.d.ts` sidecar when the resolved output is Luau.
+
+Rules to know:
+
+- Use either `path` or `writeDir` + `outputName`, not both.
+- If `outputName` has no extension, Lithos adds one from `format`.
+- If `robloxTs` / `typescript` is enabled and no `format` is set, Lithos defaults to `.luau`.
+- CLI flags such as `--output`, `--format`, and `--roblox-ts` override config values.
+
 ## YAML syntax
 
 Lithos config files use YAML syntax, and should have either a `.yml` or `.yaml` file extension. To
@@ -80,7 +126,7 @@ repo.
 ## Schemas
 
 You can view the JSON schemas for the config files below (only for versions above `0.11.0`). You can also use
-the schema to add autocomplete to your editor while editing your `lithos.yml` files. For VSCode, you can
+the schema to add autocomplete to your editor while editing your `lithos.yml` or `lithos.yaml` files. For VSCode, you can
 install the [YAML](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) extension and add
 the following to your VSCode settings:
 

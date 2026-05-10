@@ -11,7 +11,8 @@ to flip a setting, no "wait, which build is on prod?".
 
 It's a continuation of [Mantle](https://github.com/blake-mealey/mantle) by
 Blake Mealey. The project model and CLI surface are intentionally the same;
-existing `mantle.yml` and `.mantle-state.yml` files keep working. See
+existing `mantle.yml`, `mantle.yaml`, and `.mantle-state.yml` files keep
+working. See
 [MIGRATION.md](MIGRATION.md) for the rename details.
 
 ```yaml
@@ -62,7 +63,7 @@ The simplest path:
 ```toml
 # foreman.toml
 [tools]
-lithos = { source = "siriuslatte/lithos", version = "0.2.0" }
+lithos = { source = "siriuslatte/lithos", version = "0.3.0" }
 ```
 
 **Manual**
@@ -94,6 +95,34 @@ lithos deploy projects/getting-started --environment dev
 The first run creates an experience and a place; subsequent runs only push what changed. Run `lithos diff --environment dev` any time to see what would happen without actually deploying.
 
 If you're not signed into Roblox Studio on the same machine, set `ROBLOSECURITY` and, for Open Cloud-backed endpoints such as place publishing, `LITHOS_OPEN_CLOUD_API_KEY` (Lithos also accepts `ROBLOX_OPEN_CLOUD_API_KEY`).
+
+Lithos loads `.env` from the resolved project root as well as the current
+working directory, so `lithos deploy path/to/project` still picks up the
+credentials next to that project's config file.
+
+## Configured outputs
+
+`lithos outputs` can be driven from project config instead of repeating the
+target file path and `--roblox-ts` flags on every invocation.
+
+```yaml
+outputs:
+  writeDir: src/shared/generated
+  outputName: lithosOutputs
+  format: luau
+  robloxTs: true
+```
+
+With that in place, this is enough:
+
+```sh
+lithos outputs --environment dev
+```
+
+Lithos will write `src/shared/generated/lithosOutputs.luau` plus
+`src/shared/generated/lithosOutputs.d.ts`. The alias `codegen` is also
+accepted, along with Asphalt-style snake_case names such as `write_dir`,
+`output_name`, and `typescript`. CLI flags still override config values.
 
 ## CLI
 
@@ -134,7 +163,7 @@ This is a Cargo workspace. The pieces:
 | `rbx_api`              | Typed Roblox web / Open Cloud API client.                            |
 | `rbx_auth`             | Cookie + Open Cloud key resolution.                                  |
 | `rbx_cookie`           | Reads `.ROBLOSECURITY` from Studio's keychain / Windows credentials. |
-| `gen_schema`           | Emits the JSON schema for `lithos.yml`.                              |
+| `gen_schema`           | Emits the JSON schema for `lithos.yml` / `lithos.yaml`.              |
 | `integration_executor` | Drives end-to-end YAML specs in `specs/`.                            |
 | `logger`               | The bracket-prefix tree logger you see in command output.            |
 
@@ -159,7 +188,8 @@ Integration tests under `specs/*.yml` hit real Roblox endpoints. They're opt-in 
 
 ## Contributing
 
-Bug reports and PRs welcome. Try to include a minimal `lithos.yml` that
+Bug reports and PRs welcome. Try to include a minimal `lithos.yml` or
+`lithos.yaml` that
 reproduces the issue. The
 [`.github/ISSUE_TEMPLATE`](.github/ISSUE_TEMPLATE) folder has the templates.
 

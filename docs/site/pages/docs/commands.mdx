@@ -16,9 +16,10 @@ reference; for the full machine-readable surface, run `lithos --help` or
 | [`import`](#import) | Adopt an existing experience into a Lithos project. |
 
 All commands accept a positional `PROJECT` argument. If omitted, Lithos
-looks for `lithos.yml` (then `mantle.yml`) in the current directory; if
-provided as a directory, Lithos looks inside it; if provided as a file,
-Lithos uses that file directly. See
+looks for `lithos.yml`, then `lithos.yaml`, then the legacy `mantle.yml`
+and `mantle.yaml` in the current directory; if provided as a directory,
+Lithos looks inside it; if provided as a file, Lithos uses that file
+directly. See
 [Configuration → Config file resolution](/docs/configuration#config-file-resolution).
 
 ## `deploy`
@@ -150,10 +151,43 @@ $ lithos outputs [PROJECT] --environment <label> [--output <file>] [--format <fo
 Print the outputs of the last deploy. Stdout still defaults to JSON for CI
 and piping, but when `--output` ends in `.lua` or `.luau`, Lithos infers a
 game-ready Luau module from the file extension. You can also set `--format`
-explicitly to `json`, `yaml`, `lua`, or `luau`.
+explicitly to `json`, `yaml`, `yml`, `lua`, or `luau`.
 
 Pass `--roblox-ts` when writing a Luau module to a file and Lithos will also
 write a matching `.d.ts` sidecar next to it for typed `roblox-ts` imports.
+
+You can also move those defaults into your project config so `lithos outputs`
+does the file generation with no extra flags. Lithos reads a top-level
+`outputs` block (or the alias `codegen`) and uses it as the default output
+request; explicit CLI flags still win.
+
+```yaml filename="lithos.yml"
+outputs:
+  writeDir: src/shared/generated
+  outputName: lithosOutputs
+  format: luau
+  robloxTs: true
+```
+
+The `codegen` alias also accepts Asphalt-style snake_case names:
+
+```yaml filename="lithos.yml"
+codegen:
+  write_dir: src/shared/generated
+  output_name: lithosOutputs
+  format: luau
+  typescript: true
+```
+
+With either config, this is enough:
+
+```text
+$ lithos outputs --environment dev
+```
+
+When `writeDir` + `outputName` omit an extension, Lithos adds one from
+`format`. If `robloxTs` / `typescript` is enabled and `format` is omitted,
+Lithos defaults to `.luau` so the `.d.ts` sidecar can be generated.
 
 After deploying the [getting-started example](https://github.com/siriuslatte/lithos/tree/main/examples/projects/getting-started),
 running `outputs` with the default JSON format looks like:
@@ -203,6 +237,10 @@ import outputs from "shared/generated/lithosOutputs";
 const startPlaceId = outputs.experience_singleton.experience.startPlaceId;
 const placeVersion = outputs.placeFile_start.placeFile.version;
 ```
+
+If the file path comes from `outputs.path` or `outputs.writeDir` +
+`outputs.outputName`, the same `.d.ts` sidecar behavior applies without
+passing `--roblox-ts` on the command line.
 
 ## `destroy`
 
