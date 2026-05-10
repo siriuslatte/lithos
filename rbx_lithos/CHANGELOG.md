@@ -1,4 +1,4 @@
-# rbx_mantle
+# rbx_lithos
 
 ## 0.11.5
 

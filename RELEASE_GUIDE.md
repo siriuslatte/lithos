@@ -1,6 +1,6 @@
 # Release Guide
 
-This is a monorepo which releases multiple crates to cargo.io and the Mantle CLI to GitHub releases for
+This is a monorepo which releases multiple crates to cargo.io and the Lithos CLI to GitHub releases for
 installation via Foreman. Currently the release process is manual and is documented here.
 
 ## Commit Messages
@@ -20,9 +20,9 @@ larger bump is required.
 After bumping the crate, build it and commit the change. Ensure the build is passing in CI. Publish the crate
 using the cargo CLI.
 
-## Mantle CLI
+## Lithos CLI
 
-When Mantle is ready for release, its crate should be updated following the above guide but not published (for
+When Lithos is ready for release, its crate should be updated following the above guide but not published (for
 now, because not all of its dependencies are published). To release the CLI, add a git tag by running
 `git tag v<Version>`. After adding the tag, push it to GitHub with `git push --tags`. A CI build will
 automatically run which will build the CLI for release and upload it to GitHub Releases. When the release is
@@ -31,5 +31,5 @@ commit messages since the last release.
 
 ## Docs
 
-When a new version of Mantle is released, the docs need to be updated to match. Open the Vercel project for
-the docs site and trigger a redeployment of the `main` branch.
+When a new version of Lithos is released, the docs need to be updated to match. Regenerate any versioned
+release data used by the docs site and rerun the docs deployment workflow if needed.

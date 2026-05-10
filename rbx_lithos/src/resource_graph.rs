@@ -543,7 +543,7 @@ where
                         Some(price)
                     } else {
                         return OperationResult::Skipped(format!(
-                                "Resource would cost {} Robux to create. Give Mantle permission to make purchases with --allow-purchases.",
+                                "Resource would cost {} Robux to create. Give Lithos permission to make purchases with --allow-purchases.",
                                 price
                             ));
                     }
@@ -602,7 +602,7 @@ where
                         Some(price)
                     } else {
                         return OperationResult::Skipped(format!(
-                                "Resource would cost {} Robux to create. Give Mantle permission to make purchases with --allow-purchases.",
+                                "Resource would cost {} Robux to create. Give Lithos permission to make purchases with --allow-purchases.",
                                 price
                             ));
                     }

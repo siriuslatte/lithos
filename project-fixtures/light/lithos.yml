@@ -10,12 +10,12 @@ target:
       start:
         file: place.rbxl
         configuration:
-          name: Lightweight Mantle Test
+          name: Lightweight Lithos Test
           serverFill:
             reservedSlots: 4
 
 state:
   remote:
     region: us-west-2
-    bucket: mantle-states
+    bucket: lithos-states
     key: project-fixtures/light

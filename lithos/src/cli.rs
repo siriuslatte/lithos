@@ -14,15 +14,16 @@ USAGE:
 {all-args}";
 
 const PROJECT_HELP: &str =
-    "The Lithos project: either the path to a directory containing 'lithos.yml', 'lithos.json', \
-     or legacy 'mantle.yml', or the path to a YAML/JSON configuration file. Directory lookup \
-     checks 'lithos.yml', then 'lithos.json', then legacy 'mantle.yml'. Defaults to the current \
+    "The Lithos project: either the path to a directory containing 'lithos.yml', 'lithos.yaml', \
+     'lithos.json', or legacy 'mantle.yml' / 'mantle.yaml', or the path to a YAML/JSON \
+     configuration file. Directory lookup checks 'lithos.yml', then 'lithos.yaml', then \
+     'lithos.json', then legacy 'mantle.yml', then 'mantle.yaml'. Defaults to the current \
      directory.";
 
 fn get_app() -> App<'static, 'static> {
     App::new("Lithos")
         .version(crate_version!())
-        .about("Infra-as-code and deployment tool for Roblox (formerly Mantle)")
+        .about("Infra-as-code and deployment tool for Roblox")
         .template(HELP_TEMPLATE)
         .setting(AppSettings::ArgRequiredElseHelp)
         .setting(AppSettings::VersionlessSubcommands)
@@ -88,7 +89,7 @@ fn get_app() -> App<'static, 'static> {
                         .help("The format to print the diff in")
                         .value_name("FORMAT")
                         .takes_value(true)
-                        .possible_values(&["json","yaml"]))
+                        .possible_values(&["json", "yaml", "yml"]))
                 .arg(
                     Arg::with_name("live")
                         .long("live")
@@ -162,18 +163,21 @@ fn get_app() -> App<'static, 'static> {
                     Arg::with_name("output")
                         .long("output")
                         .short("o")
-                        .help("A file path to print the outputs to")
+                        .help("A file path to print the outputs to. Overrides outputs.path / outputs.writeDir + outputs.outputName from the project config.")
                         .value_name("FILE")
                         .takes_value(true))
                 .arg(
                     Arg::with_name("format")
                         .long("format")
                         .short("f")
-                        .help("The format to print the outputs in")
+                        .help("The format to print the outputs in. Overrides outputs.format from the project config. If omitted, infer Luau from the resolved output path and otherwise default to json.")
                         .value_name("FORMAT")
                         .takes_value(true)
-                        .possible_values(&["json","yaml"])
-                        .default_value("json"))
+                        .possible_values(&["json", "yaml", "yml", "lua", "luau"]))
+                .arg(
+                    Arg::with_name("roblox_ts")
+                        .long("roblox-ts")
+                        .help("When generating Luau to a file, also write a matching .d.ts sidecar for roblox-ts. Overrides outputs.robloxTs from the project config."))
         )
         .subcommand(
             SubCommand::with_name("import")
@@ -316,7 +320,8 @@ pub async fn run_with(args: Vec<String>) -> i32 {
                 outputs_matches.value_of("PROJECT"),
                 outputs_matches.value_of("environment"),
                 outputs_matches.value_of("output"),
-                outputs_matches.value_of("format").unwrap(),
+                outputs_matches.value_of("format"),
+                outputs_matches.is_present("roblox_ts"),
             )
             .await
         }
