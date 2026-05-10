@@ -2,14 +2,14 @@
 resolver = "2"
 members = [
     # bins
-    "lithos",
-    "gen_schema",
+    "src/lithos",
+    "src/gen_schema",
 
     # libs
-    "rbx_lithos",
-    "rbx_api",
-    "rbx_auth",
-    "rbx_cookie",
-    "logger",
-    "integration_executor"
+    "src/rbx_lithos",
+    "src/rbx_api",
+    "src/rbx_auth",
+    "src/rbx_cookie",
+    "src/logger",
+    "src/integration_executor"
 ]

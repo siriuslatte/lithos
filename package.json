@@ -1,7 +1,7 @@
 {
     "name": "lithos-tooling",
     "private": true,
-    "description": "Repo-root tooling (husky git hooks) for Lithos. The actual Rust crates live in their respective Cargo workspaces; the docs site lives under docs/.",
+    "description": "Repo-root tooling (husky git hooks) for Lithos. Production Rust workspace members live under src/; the docs site lives under docs/.",
     "scripts": {
         "prepare": "husky"
     },

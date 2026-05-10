@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Support and usage guidance
+    url: https://github.com/siriuslatte/lithos/blob/main/SUPPORT.md
+    about: Read this before filing usage questions or best-effort support requests.
+  - name: Private security reporting
+    url: https://github.com/siriuslatte/lithos/blob/main/SECURITY.md
+    about: Do not report vulnerabilities in public issues.

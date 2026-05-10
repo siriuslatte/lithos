@@ -18,4 +18,4 @@ state:
   remote:
     region: us-west-2
     bucket: lithos-states
-    key: project-fixtures/light
+    key: test/project-fixtures/light
