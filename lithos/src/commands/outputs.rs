@@ -1,16 +1,28 @@
-use std::{collections::BTreeMap, fmt::Write as _, fs, path::Path};
+use std::{
+    collections::BTreeMap,
+    fmt::Write as _,
+    fs,
+    path::{Path, PathBuf},
+};
 
 use serde_json::{Map, Value};
 use yansi::Paint;
 
 use rbx_lithos::{
-    config::load_project_config,
+    config::{load_project_config, OutputsConfig},
     project::{load_project, Project},
     resource_graph::Resource,
     roblox_resource_manager::RobloxOutputs,
 };
 
 type OutputsMap = BTreeMap<String, Option<RobloxOutputs>>;
+
+#[derive(Debug, Eq, PartialEq)]
+struct OutputRequest {
+    output: Option<String>,
+    format: Option<String>,
+    roblox_ts: bool,
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum OutputFormat {
@@ -23,7 +35,7 @@ impl OutputFormat {
     fn parse(format: &str) -> Result<Self, String> {
         match format {
             "json" => Ok(Self::Json),
-            "yaml" => Ok(Self::Yaml),
+            "yaml" | "yml" => Ok(Self::Yaml),
             "lua" | "luau" => Ok(Self::Luau),
             _ => Err(format!("Unknown format: {}", format)),
         }
@@ -42,10 +54,101 @@ impl OutputFormat {
     fn from_output_path(output_path: &str) -> Option<Self> {
         let lower = output_path.to_ascii_lowercase();
         match Path::new(&lower).extension().and_then(|ext| ext.to_str()) {
+            Some("yaml") | Some("yml") => Some(Self::Yaml),
             Some("luau") | Some("lua") => Some(Self::Luau),
             _ => None,
         }
     }
+}
+
+fn default_output_extension(format: Option<&str>, roblox_ts: bool) -> &'static str {
+    match format {
+        Some("json") => "json",
+        Some("yaml") => "yaml",
+        Some("yml") => "yml",
+        Some("lua") => "lua",
+        Some("luau") => "luau",
+        None if roblox_ts => "luau",
+        None => "json",
+        Some(_) => unreachable!("format should be validated before choosing an extension"),
+    }
+}
+
+fn resolve_output_path(project_path: &Path, configured_path: &str) -> PathBuf {
+    let configured_path = Path::new(configured_path);
+    if configured_path.is_absolute() {
+        configured_path.to_path_buf()
+    } else {
+        project_path.join(configured_path)
+    }
+}
+
+fn resolve_configured_output_path(
+    project_path: &Path,
+    config: &OutputsConfig,
+    format: Option<&str>,
+    roblox_ts: bool,
+) -> Result<Option<String>, String> {
+    if config.path.is_some() && (config.write_dir.is_some() || config.output_name.is_some()) {
+        return Err(
+            "The outputs config cannot combine `path` with `writeDir` or `outputName`.".to_owned(),
+        );
+    }
+
+    let mut output_path = if let Some(path) = config.path.as_deref() {
+        resolve_output_path(project_path, path)
+    } else {
+        match (config.write_dir.as_deref(), config.output_name.as_deref()) {
+            (None, None) => return Ok(None),
+            (Some(_), None) | (None, Some(_)) => {
+                return Err(
+                    "The outputs config requires both `writeDir` and `outputName` when `path` is not set."
+                        .to_owned(),
+                )
+            }
+            (Some(write_dir), Some(output_name)) => {
+                resolve_output_path(project_path, write_dir).join(output_name)
+            }
+        }
+    };
+
+    if output_path.extension().is_none() {
+        output_path.set_extension(default_output_extension(format, roblox_ts));
+    }
+
+    Ok(Some(output_path.to_string_lossy().into_owned()))
+}
+
+fn resolve_output_request(
+    project_path: &Path,
+    cli_output: Option<&str>,
+    cli_format: Option<&str>,
+    cli_roblox_ts: bool,
+    config: &OutputsConfig,
+) -> Result<OutputRequest, String> {
+    let format = cli_format
+        .map(ToOwned::to_owned)
+        .or_else(|| config.format.map(|format| format.as_str().to_owned()));
+
+    if let Some(format_name) = format.as_deref() {
+        OutputFormat::parse(format_name)?;
+    }
+
+    let roblox_ts = if cli_roblox_ts {
+        true
+    } else {
+        config.roblox_ts
+    };
+    let output = match cli_output {
+        Some(output) => Some(output.to_owned()),
+        None => resolve_configured_output_path(project_path, config, format.as_deref(), roblox_ts)?,
+    };
+
+    Ok(OutputRequest {
+        output,
+        format,
+        roblox_ts,
+    })
 }
 
 pub async fn run(
@@ -63,6 +166,25 @@ pub async fn run(
             return 1;
         }
     };
+    let configured_outputs = config.outputs.clone();
+    let OutputRequest {
+        output,
+        format,
+        roblox_ts,
+    } = match resolve_output_request(
+        project_path.as_path(),
+        output,
+        format,
+        roblox_ts,
+        &configured_outputs,
+    ) {
+        Ok(v) => v,
+        Err(e) => {
+            logger::end_action(Paint::red(e));
+            return 1;
+        }
+    };
+
     let Project { current_graph, .. } =
         match load_project(project_path.clone(), config, environment).await {
             Ok(Some(v)) => v,
@@ -82,7 +204,7 @@ pub async fn run(
         .map(|r| (r.get_id(), r.get_outputs()))
         .collect::<OutputsMap>();
 
-    let format = match OutputFormat::infer(output, format) {
+    let format = match OutputFormat::infer(output.as_deref(), format.as_deref()) {
         Ok(v) => v,
         Err(e) => {
             logger::end_action(Paint::red(e));
@@ -91,7 +213,7 @@ pub async fn run(
     };
 
     let declaration_output =
-        match serialize_roblox_ts_sidecar(&outputs_map, format, output, roblox_ts) {
+        match serialize_roblox_ts_sidecar(&outputs_map, format, output.as_deref(), roblox_ts) {
             Ok(v) => v,
             Err(e) => {
                 logger::end_action(Paint::red(e));
@@ -109,7 +231,7 @@ pub async fn run(
     logger::end_action("Succeeded");
 
     if let Some(output) = output {
-        if let Err(e) = fs::write(output, outputs_string)
+        if let Err(e) = fs::write(&output, outputs_string)
             .map_err(|e| format!("Unable to write outputs file: {}\n\t{}", output, e))
         {
             logger::log(Paint::red(e));
@@ -159,7 +281,8 @@ fn serialize_roblox_ts_sidecar(
     }
 
     let output = output.ok_or_else(|| {
-        "The --roblox-ts flag requires --output so Lithos can write a .d.ts sidecar.".to_owned()
+        "The --roblox-ts flag requires an output file so Lithos can write a .d.ts sidecar. Set --output or configure outputs.path / outputs.writeDir + outputs.outputName."
+            .to_owned()
     })?;
     let declaration_path = roblox_ts_declaration_path(output)?;
     let declaration_string =
@@ -180,10 +303,7 @@ fn roblox_ts_declaration_path(output: &str) -> Result<String, String> {
             .with_extension("d.ts")
             .to_string_lossy()
             .into_owned()),
-        _ => Err(
-            "The --roblox-ts flag requires the Luau output file to end in .lua or .luau."
-                .to_owned(),
-        ),
+        _ => Err("The --roblox-ts flag requires the Luau output file to end in .lua or .luau. Set --output to a Luau filename or configure outputs.path / outputs.outputName accordingly.".to_owned()),
     }
 }
 
@@ -414,7 +534,10 @@ mod tests {
     use serde_json::json;
 
     use super::*;
-    use rbx_lithos::roblox_resource_manager::{ExperienceOutputs, RobloxOutputs};
+    use rbx_lithos::{
+        config::{OutputsConfig, OutputsFormatConfig},
+        roblox_resource_manager::{ExperienceOutputs, RobloxOutputs},
+    };
 
     fn sample_outputs() -> OutputsMap {
         BTreeMap::from([(
@@ -439,11 +562,111 @@ mod tests {
         );
         assert_eq!(
             OutputFormat::infer(Some("generated/outputs.yml"), None).unwrap(),
-            OutputFormat::Json
+            OutputFormat::Yaml
+        );
+        assert_eq!(
+            OutputFormat::infer(Some("generated/outputs.yaml"), None).unwrap(),
+            OutputFormat::Yaml
         );
         assert_eq!(
             OutputFormat::infer(Some("generated/Outputs.luau"), Some("json")).unwrap(),
             OutputFormat::Json
+        );
+    }
+
+    #[test]
+    fn yaml_aliases_are_supported_for_outputs() {
+        assert_eq!(
+            OutputFormat::infer(None, Some("yaml")).unwrap(),
+            OutputFormat::Yaml
+        );
+        assert_eq!(
+            OutputFormat::infer(None, Some("yml")).unwrap(),
+            OutputFormat::Yaml
+        );
+    }
+
+    #[test]
+    fn configured_outputs_generate_luau_files_without_cli_flags() {
+        let project_path = Path::new("project-root");
+        let request = resolve_output_request(
+            project_path,
+            None,
+            None,
+            false,
+            &OutputsConfig {
+                path: None,
+                write_dir: Some("src/shared/generated".to_owned()),
+                output_name: Some("lithosOutputs".to_owned()),
+                format: Some(OutputsFormatConfig::Luau),
+                roblox_ts: true,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            request,
+            OutputRequest {
+                output: Some(
+                    project_path
+                        .join("src/shared/generated")
+                        .join("lithosOutputs.luau")
+                        .to_string_lossy()
+                        .into_owned()
+                ),
+                format: Some("luau".to_owned()),
+                roblox_ts: true,
+            }
+        );
+    }
+
+    #[test]
+    fn cli_flags_override_configured_outputs_defaults() {
+        let request = resolve_output_request(
+            Path::new("project-root"),
+            Some("custom/output.json"),
+            Some("json"),
+            false,
+            &OutputsConfig {
+                path: Some("generated/outputs.luau".to_owned()),
+                write_dir: None,
+                output_name: None,
+                format: Some(OutputsFormatConfig::Luau),
+                roblox_ts: true,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            request,
+            OutputRequest {
+                output: Some("custom/output.json".to_owned()),
+                format: Some("json".to_owned()),
+                roblox_ts: true,
+            }
+        );
+    }
+
+    #[test]
+    fn outputs_config_rejects_ambiguous_path_settings() {
+        let error = resolve_output_request(
+            Path::new("project-root"),
+            None,
+            None,
+            false,
+            &OutputsConfig {
+                path: Some("generated/outputs.luau".to_owned()),
+                write_dir: Some("src/shared/generated".to_owned()),
+                output_name: Some("lithosOutputs".to_owned()),
+                format: Some(OutputsFormatConfig::Luau),
+                roblox_ts: true,
+            },
+        )
+        .unwrap_err();
+
+        assert_eq!(
+            error,
+            "The outputs config cannot combine `path` with `writeDir` or `outputName`."
         );
     }
 

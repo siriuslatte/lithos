@@ -14,8 +14,9 @@ USAGE:
 {all-args}";
 
 const PROJECT_HELP: &str =
-    "The Lithos project: either the path to a directory containing a 'lithos.yml' (or legacy \
-     'mantle.yml') file, or the path to a configuration file. Defaults to the current directory.";
+    "The Lithos project: either the path to a directory containing a 'lithos.yml' or \
+     'lithos.yaml' (or legacy 'mantle.yml' / 'mantle.yaml') file, or the path to a \
+     configuration file. Defaults to the current directory.";
 
 fn get_app() -> App<'static, 'static> {
     App::new("Lithos")
@@ -86,7 +87,7 @@ fn get_app() -> App<'static, 'static> {
                         .help("The format to print the diff in")
                         .value_name("FORMAT")
                         .takes_value(true)
-                        .possible_values(&["json","yaml"]))
+                        .possible_values(&["json", "yaml", "yml"]))
                 .arg(
                     Arg::with_name("live")
                         .long("live")
@@ -160,21 +161,21 @@ fn get_app() -> App<'static, 'static> {
                     Arg::with_name("output")
                         .long("output")
                         .short("o")
-                        .help("A file path to print the outputs to")
+                        .help("A file path to print the outputs to. Overrides outputs.path / outputs.writeDir + outputs.outputName from the project config.")
                         .value_name("FILE")
                         .takes_value(true))
                 .arg(
                     Arg::with_name("format")
                         .long("format")
                         .short("f")
-                        .help("The format to print the outputs in. If omitted, infer Luau from --output and otherwise default to json.")
+                        .help("The format to print the outputs in. Overrides outputs.format from the project config. If omitted, infer Luau from the resolved output path and otherwise default to json.")
                         .value_name("FORMAT")
                         .takes_value(true)
-                        .possible_values(&["json", "yaml", "lua", "luau"]))
+                        .possible_values(&["json", "yaml", "yml", "lua", "luau"]))
                 .arg(
                     Arg::with_name("roblox_ts")
                         .long("roblox-ts")
-                        .help("When generating Luau to a file, also write a matching .d.ts sidecar for roblox-ts."))
+                        .help("When generating Luau to a file, also write a matching .d.ts sidecar for roblox-ts. Overrides outputs.robloxTs from the project config."))
         )
         .subcommand(
             SubCommand::with_name("import")

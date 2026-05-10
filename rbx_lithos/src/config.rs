@@ -112,6 +112,83 @@ pub struct Config {
     /// ```
     #[serde(default)]
     pub state: StateConfig,
+
+    /// default({})
+    ///
+    /// Default settings for the `lithos outputs` command.
+    ///
+    /// This lets you keep output-generation details in project config instead
+    /// of repeating `--output`, `--format`, and `--roblox-ts` on every run.
+    /// CLI flags still win when both are provided.
+    ///
+    /// Use either `path` for a full file path, or `writeDir` + `outputName`
+    /// to let Lithos build the file path for you. When `outputName` has no
+    /// extension, Lithos will infer one from `format`; if `robloxTs` is true
+    /// and no format is specified, it defaults to `.luau`.
+    ///
+    /// ```yml title="Outputs Example"
+    /// outputs:
+    ///   writeDir: src/shared/generated
+    ///   outputName: lithosOutputs
+    ///   format: luau
+    ///   robloxTs: true
+    /// ```
+    ///
+    /// Lithos also accepts the legacy-style alias `codegen` plus snake_case
+    /// field names for easier migration from other tools.
+    #[serde(default, alias = "codegen")]
+    pub outputs: OutputsConfig,
+}
+
+#[derive(JsonSchema, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OutputsConfig {
+    /// A full output file path for `lithos outputs`.
+    ///
+    /// If this is set, do not also set `writeDir` or `outputName`.
+    #[serde(default)]
+    pub path: Option<String>,
+
+    /// A directory relative to the project root where `lithos outputs` should
+    /// write the generated file.
+    #[serde(default, alias = "write_dir")]
+    pub write_dir: Option<String>,
+
+    /// The base name of the generated file. If it has no extension, Lithos
+    /// adds one from `format`.
+    #[serde(default, alias = "output_name")]
+    pub output_name: Option<String>,
+
+    /// The default format for `lithos outputs`.
+    #[serde(default)]
+    pub format: Option<OutputsFormatConfig>,
+
+    /// Whether `lithos outputs` should also generate a `.d.ts` sidecar when
+    /// writing Luau output for roblox-ts.
+    #[serde(default, alias = "typescript", alias = "roblox_ts")]
+    pub roblox_ts: bool,
+}
+
+#[derive(JsonSchema, Deserialize, Clone, Copy, Debug, Eq, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum OutputsFormatConfig {
+    Json,
+    Yaml,
+    Yml,
+    Lua,
+    Luau,
+}
+
+impl OutputsFormatConfig {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Json => "json",
+            Self::Yaml => "yaml",
+            Self::Yml => "yml",
+            Self::Lua => "lua",
+            Self::Luau => "luau",
+        }
+    }
 }
 
 #[derive(JsonSchema, Deserialize, Clone)]
@@ -1016,4 +1093,42 @@ pub struct PlaceTargetConfigurationConfig {
     ///             reservedSlots: 5
     /// ```
     pub server_fill: Option<ServerFillTargetConfig>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Config, OutputsFormatConfig};
+
+    #[test]
+    fn outputs_config_supports_codegen_aliases() {
+        let config = serde_yaml::from_str::<Config>(
+            r#"environments:
+    - label: dev
+target:
+    experience:
+        configuration:
+            genre: building
+            playableDevices: [computer]
+        places:
+            start:
+                file: game.rbxlx
+                configuration:
+                    name: Example
+codegen:
+    write_dir: src/shared/generated
+    output_name: lithosOutputs
+    format: luau
+    typescript: true
+"#,
+        )
+        .expect("config with codegen aliases should parse");
+
+        assert_eq!(
+            config.outputs.write_dir.as_deref(),
+            Some("src/shared/generated")
+        );
+        assert_eq!(config.outputs.output_name.as_deref(), Some("lithosOutputs"));
+        assert_eq!(config.outputs.format, Some(OutputsFormatConfig::Luau));
+        assert!(config.outputs.roblox_ts);
+    }
 }
