@@ -2,7 +2,7 @@
 
 > Internal Lithos crate. Not published to crates.io.
 
-Generates [`specs/schema.json`](../specs/schema.json) — the JSON Schema that
+Generates [`test/specs/schema.json`](../../test/specs/schema.json) — the JSON Schema that
 powers editor autocomplete and validation for `lithos.yml`, `lithos.yaml`,
 `lithos.json`, and legacy `mantle.yml` / `mantle.yaml`.
 
@@ -13,7 +13,7 @@ the source of truth automatically.
 ## Regenerating
 
 ```sh
-cargo run -p gen_schema > specs/schema.json
+cargo run -p gen_schema > test/specs/schema.json
 ```
 
 Run this whenever you change a config type and commit the result.
