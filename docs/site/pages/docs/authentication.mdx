@@ -118,6 +118,11 @@ the current working directory. The file is dotenv-format
 (`KEY="value"` per line, `#` comments). This is the recommended way to
 hold secrets locally:
 
+If you invoke Lithos from outside the project, for example
+`lithos outputs path/to/project`, it still loads the `.env` next to the
+resolved project config in addition to any `.env` in the current working
+directory.
+
 ```shell filename=".env"
 ROBLOSECURITY="…"
 LITHOS_OPEN_CLOUD_API_KEY="…"

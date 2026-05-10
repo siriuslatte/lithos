@@ -197,7 +197,7 @@ pub(in crate::roblox_resource_manager) async fn create(
             } else {
                 Err(mgr.operation_error(
                     context,
-                    "Place uploads require Open Cloud authentication. Find out more here: https://mantledeploy.vercel.app/docs/authentication#roblox-open-cloud-api-key",
+                    "Place uploads require Open Cloud authentication. Find out more here: https://siriuslatte.github.io/lithos/docs/authentication",
                 ))
             }
         }

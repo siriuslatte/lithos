@@ -11,14 +11,15 @@ reference; for the full machine-readable surface, run `lithos --help` or
 | [`deploy`](#deploy) | Reconcile state with config and apply the diff. |
 | [`diff`](#diff) | Print the diff without applying it. |
 | [`undo`](#undo) | Restore the last recorded checkpoint for an environment. |
-| [`outputs`](#outputs) | Print the outputs (asset IDs, etc.) of the last deploy. |
+| [`outputs`](#outputs) | Print the outputs of the last deploy as JSON, YAML, or importable modules. |
 | [`destroy`](#destroy) | Remove every resource Lithos manages for an environment. |
 | [`import`](#import) | Adopt an existing experience into a Lithos project. |
 
 All commands accept a positional `PROJECT` argument. If omitted, Lithos
-looks for `lithos.yml` (then `mantle.yml`) in the current directory; if
-provided as a directory, Lithos looks inside it; if provided as a file,
-Lithos uses that file directly. See
+looks for `lithos.yml`, then `lithos.yaml`, then the legacy `mantle.yml`
+and `mantle.yaml` in the current directory; if provided as a directory,
+Lithos looks inside it; if provided as a file, Lithos uses that file
+directly. See
 [Configuration → Config file resolution](/docs/configuration#config-file-resolution).
 
 ## `deploy`
@@ -144,15 +145,52 @@ needs to recreate a paid resource.
 ## `outputs`
 
 ```text
-$ lithos outputs [PROJECT] --environment <label>
+$ lithos outputs [PROJECT] --environment <label> [--output <file>] [--format <format>] [--roblox-ts]
 ```
 
-Print the outputs of the last deploy as JSON. Use this when your game code
-needs an asset ID Lithos created — feed the JSON into a build step that
-templates IDs into your Lua source.
+Print the outputs of the last deploy. Stdout still defaults to JSON for CI
+and piping, but when `--output` ends in `.lua` or `.luau`, Lithos infers a
+game-ready Luau module from the file extension. You can also set `--format`
+explicitly to `json`, `yaml`, `yml`, `lua`, or `luau`.
+
+Pass `--roblox-ts` when writing a Luau module to a file and Lithos will also
+write a matching `.d.ts` sidecar next to it for typed `roblox-ts` imports.
+
+You can also move those defaults into your project config so `lithos outputs`
+does the file generation with no extra flags. Lithos reads a top-level
+`outputs` block (or the alias `codegen`) and uses it as the default output
+request; explicit CLI flags still win.
+
+```yaml filename="lithos.yml"
+outputs:
+  writeDir: src/shared/generated
+  outputName: lithosOutputs
+  format: luau
+  robloxTs: true
+```
+
+The `codegen` alias also accepts Asphalt-style snake_case names:
+
+```yaml filename="lithos.yml"
+codegen:
+  write_dir: src/shared/generated
+  output_name: lithosOutputs
+  format: luau
+  typescript: true
+```
+
+With either config, this is enough:
+
+```text
+$ lithos outputs --environment dev
+```
+
+When `writeDir` + `outputName` omit an extension, Lithos adds one from
+`format`. If `robloxTs` / `typescript` is enabled and `format` is omitted,
+Lithos defaults to `.luau` so the `.d.ts` sidecar can be generated.
 
 After deploying the [getting-started example](https://github.com/siriuslatte/lithos/tree/main/examples/projects/getting-started),
-running `outputs` looks like:
+running `outputs` with the default JSON format looks like:
 
 ```json
 {
@@ -170,6 +208,39 @@ running `outputs` looks like:
   }
 }
 ```
+
+Generate a Luau module when you want game code to require the outputs
+directly instead of templating JSON into source later:
+
+```text
+$ lithos outputs --environment dev --output src/shared/generated/lithosOutputs.luau
+```
+
+```luau
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local outputs = require(ReplicatedStorage.shared.generated.lithosOutputs)
+
+local startPlaceId = outputs.experience_singleton.experience.startPlaceId
+local placeVersion = outputs.placeFile_start.placeFile.version
+```
+
+For `roblox-ts`, keep the generated Luau module as the runtime source and add
+`--roblox-ts` so Lithos also writes `lithosOutputs.d.ts` beside it:
+
+```text
+$ lithos outputs --environment dev --output src/shared/generated/lithosOutputs.luau --roblox-ts
+```
+
+```ts
+import outputs from "shared/generated/lithosOutputs";
+
+const startPlaceId = outputs.experience_singleton.experience.startPlaceId;
+const placeVersion = outputs.placeFile_start.placeFile.version;
+```
+
+If the file path comes from `outputs.path` or `outputs.writeDir` +
+`outputs.outputName`, the same `.d.ts` sidecar behavior applies without
+passing `--roblox-ts` on the command line.
 
 ## `destroy`
 

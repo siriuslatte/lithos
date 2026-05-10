@@ -83,7 +83,7 @@ export default {
       <span style={{ color: 'var(--lithos-muted)', fontSize: '0.85rem' }}>
         Lithos · MIT licensed · Continuation of{' '}
         <a
-          href="https://github.com/siriuslatte/lithos"
+          href="https://github.com/blake-mealey/mantle"
           target="_blank"
           rel="noreferrer"
           style={{ color: 'var(--lithos-accent)' }}

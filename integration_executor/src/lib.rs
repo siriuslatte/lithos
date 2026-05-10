@@ -120,7 +120,7 @@ pub fn execute_spec(spec: &str) {
             }
         }
 
-        println!("> mantle {}", step.command);
+        println!("> lithos {}", step.command);
         let output = test_bin::get_test_bin("lithos")
             .args(step.command.split(' '))
             .arg(context.working_dir.to_str().unwrap())

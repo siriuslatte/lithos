@@ -63,6 +63,16 @@ fn print_diff(diff: ResourceGraphDiff) {
     }
 }
 
+fn serialize_diff(diff: &ResourceGraphDiff, format: &str) -> Result<String, String> {
+    match format {
+        "json" => serde_json::to_string_pretty(diff)
+            .map(|x| x + "\n")
+            .map_err(|e| e.to_string()),
+        "yaml" | "yml" => serde_yaml::to_string(diff).map_err(|e| e.to_string()),
+        _ => Err(format!("Unknown format: {}", format)),
+    }
+}
+
 pub async fn run(
     project: Option<&str>,
     environment: Option<&str>,
@@ -152,13 +162,7 @@ pub async fn run(
 
     match diff {
         Ok(diff) => {
-            let outputs_string = format.map(|format| match format {
-                "json" => serde_json::to_string_pretty(&diff)
-                    .map(|x| x + "\n")
-                    .map_err(|e| e.to_string()),
-                "yaml" => serde_yaml::to_string(&diff).map_err(|e| e.to_string()),
-                _ => Err(format!("Unknown format: {}", format)),
-            });
+            let outputs_string = format.map(|format| serialize_diff(&diff, format));
 
             // Pick a renderer:
             //   - machine-readable mode (--format / --output): keep the old
@@ -216,5 +220,31 @@ pub async fn run(
             logger::end_action(Paint::red(e));
             1
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::BTreeMap;
+
+    use rbx_lithos::resource_graph::ResourceGraphDiff;
+
+    use super::serialize_diff;
+
+    fn empty_diff() -> ResourceGraphDiff {
+        ResourceGraphDiff {
+            removals: BTreeMap::new(),
+            additions: BTreeMap::new(),
+            changes: BTreeMap::new(),
+            dependency_changes: BTreeMap::new(),
+        }
+    }
+
+    #[test]
+    fn yaml_aliases_are_supported_for_diff() {
+        assert_eq!(
+            serialize_diff(&empty_diff(), "yml").unwrap(),
+            serialize_diff(&empty_diff(), "yaml").unwrap()
+        );
     }
 }

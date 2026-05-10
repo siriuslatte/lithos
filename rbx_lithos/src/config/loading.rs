@@ -8,30 +8,29 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use dotenv::from_path;
+use log::info;
 use yansi::Paint;
 
 use super::Config;
 
-const PRIMARY_PROJECT_CONFIG_NAME: &str = "lithos.yml";
-const JSON_PROJECT_CONFIG_NAME: &str = "lithos.json";
-const LEGACY_PROJECT_CONFIG_NAME: &str = "mantle.yml";
+const PRIMARY_CONFIG_FILENAMES: &[&str] = &["lithos.yml", "lithos.yaml", "lithos.json"];
+const LEGACY_CONFIG_FILENAMES: &[&str] = &["mantle.yml", "mantle.yaml"];
 
-fn project_config_candidates(project_path: &Path) -> [PathBuf; 3] {
-    [
-        project_path.join(PRIMARY_PROJECT_CONFIG_NAME),
-        project_path.join(JSON_PROJECT_CONFIG_NAME),
-        project_path.join(LEGACY_PROJECT_CONFIG_NAME),
-    ]
+fn config_candidates(project_path: &Path) -> Vec<PathBuf> {
+    PRIMARY_CONFIG_FILENAMES
+        .iter()
+        .chain(LEGACY_CONFIG_FILENAMES.iter())
+        .map(|file_name| project_path.join(file_name))
+        .collect()
 }
 
 fn format_project_config_search_order(project_path: &Path) -> String {
-    let candidates = project_config_candidates(project_path);
-    format!(
-        "'{}', then '{}', then legacy '{}'",
-        candidates[0].display(),
-        candidates[1].display(),
-        candidates[2].display()
-    )
+    config_candidates(project_path)
+        .iter()
+        .map(|path| format!("'{}'", path.display()))
+        .collect::<Vec<_>>()
+        .join(", then ")
 }
 
 fn parse_project_path(project: Option<&str>) -> Result<(PathBuf, PathBuf), String> {
@@ -39,10 +38,9 @@ fn parse_project_path(project: Option<&str>) -> Result<(PathBuf, PathBuf), Strin
     let project_path = Path::new(project).to_owned();
 
     if project_path.is_dir() {
-        let config_candidates = project_config_candidates(&project_path);
-        let existing_configs = config_candidates
+        let existing_configs = config_candidates(&project_path)
             .iter()
-            .filter(|path| path.exists())
+            .filter(|path| path.is_file())
             .cloned()
             .collect::<Vec<_>>();
 
@@ -63,16 +61,18 @@ fn parse_project_path(project: Option<&str>) -> Result<(PathBuf, PathBuf), Strin
                 ));
             }
 
-            if config_path.file_name().and_then(|name| name.to_str())
-                == Some(LEGACY_PROJECT_CONFIG_NAME)
-            {
+            if LEGACY_CONFIG_FILENAMES.iter().any(|legacy_name| {
+                config_path.file_name().and_then(|name| name.to_str()) == Some(*legacy_name)
+            }) {
+                let legacy_name = config_path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("mantle.yml");
                 logger::log(format!(
-                    "{} Loading legacy '{}'. Lithos checks {}. Rename the file to '{}' or '{}' to silence this notice.",
+                    "{} Loading legacy '{}'. Lithos checks {}. Rename the file to 'lithos.yml', 'lithos.yaml', or 'lithos.json' to silence this notice.",
                     Paint::yellow("warning:"),
-                    LEGACY_PROJECT_CONFIG_NAME,
+                    legacy_name,
                     format_project_config_search_order(&project_path),
-                    PRIMARY_PROJECT_CONFIG_NAME,
-                    JSON_PROJECT_CONFIG_NAME
                 ));
             }
 
@@ -111,9 +111,29 @@ fn load_config_file(config_file: &Path) -> Result<Config, String> {
     })
 }
 
+fn load_project_dotenv(project_path: &Path) {
+    let dotenv_path = project_path.join(".env");
+    if !dotenv_path.is_file() {
+        return;
+    }
+
+    match from_path(&dotenv_path) {
+        Ok(()) => info!(
+            "Loaded variables from project dotenv file: {}",
+            dotenv_path.display()
+        ),
+        Err(err) => info!(
+            "Failed to load variables from project dotenv file {}: {}",
+            dotenv_path.display(),
+            err
+        ),
+    }
+}
+
 pub fn load_project_config(project: Option<&str>) -> Result<(PathBuf, Config), String> {
     let (project_path, config_path) = parse_project_path(project)?;
     let config = load_config_file(&config_path)?;
+    load_project_dotenv(&project_path);
 
     logger::log(format!(
         "Loaded config file {}",
@@ -126,22 +146,31 @@ pub fn load_project_config(project: Option<&str>) -> Result<(PathBuf, Config), S
 #[cfg(test)]
 mod tests {
     use std::{
-        env, fs,
+        env,
+        ffi::OsString,
+        fs,
         path::{Path, PathBuf},
         process,
         sync::atomic::{AtomicUsize, Ordering},
         time::{SystemTime, UNIX_EPOCH},
     };
 
-    use super::{
-        load_project_config, JSON_PROJECT_CONFIG_NAME, LEGACY_PROJECT_CONFIG_NAME,
-        PRIMARY_PROJECT_CONFIG_NAME,
-    };
+    use super::{load_project_config, LEGACY_CONFIG_FILENAMES, PRIMARY_CONFIG_FILENAMES};
 
     static NEXT_TEMP_DIR_ID: AtomicUsize = AtomicUsize::new(0);
 
+    const YML_CONFIG: &str = r#"environments:
+  - label: yml-preferred
+    branches: [main]
+target:
+  experience:
+    places:
+      start:
+        file: place.rbxl
+"#;
+
     const YAML_CONFIG: &str = r#"environments:
-  - label: yaml-preferred
+  - label: yaml-supported
     branches: [main]
 target:
   experience:
@@ -168,25 +197,48 @@ target:
   }
 }"#;
 
+    struct EnvVarGuard {
+        key: &'static str,
+        previous_value: Option<OsString>,
+    }
+
+    impl EnvVarGuard {
+        fn capture(key: &'static str) -> Self {
+            Self {
+                key,
+                previous_value: env::var_os(key),
+            }
+        }
+    }
+
+    impl Drop for EnvVarGuard {
+        fn drop(&mut self) {
+            if let Some(value) = self.previous_value.as_ref() {
+                env::set_var(self.key, value);
+            } else {
+                env::remove_var(self.key);
+            }
+        }
+    }
+
     struct TempProjectDir {
         path: PathBuf,
     }
 
     impl TempProjectDir {
         fn new() -> Self {
+            let timestamp = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock should be after unix epoch")
+                .as_nanos();
             let mut path = env::temp_dir();
             path.push(format!(
                 "lithos-config-loading-{}-{}-{}",
                 process::id(),
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos(),
+                timestamp,
                 NEXT_TEMP_DIR_ID.fetch_add(1, Ordering::Relaxed)
             ));
-
-            fs::create_dir_all(&path).unwrap();
-
+            fs::create_dir_all(&path).expect("temp project directory should be created");
             Self { path }
         }
 
@@ -196,7 +248,7 @@ target:
 
         fn write(&self, file_name: &str, contents: &str) -> PathBuf {
             let file_path = self.path.join(file_name);
-            fs::write(&file_path, contents).unwrap();
+            fs::write(&file_path, contents).expect("project config file should be written");
             file_path
         }
     }
@@ -208,9 +260,21 @@ target:
     }
 
     #[test]
+    fn discovers_lithos_yaml_when_directory_has_no_yml_or_json() {
+        let project_dir = TempProjectDir::new();
+        project_dir.write(PRIMARY_CONFIG_FILENAMES[1], YAML_CONFIG);
+
+        let (project_path, config) =
+            load_project_config(Some(project_dir.path().to_str().unwrap())).unwrap();
+
+        assert_eq!(project_path, project_dir.path());
+        assert_eq!(config.environments[0].label, "yaml-supported");
+    }
+
+    #[test]
     fn discovers_lithos_json_when_directory_has_no_yaml() {
         let project_dir = TempProjectDir::new();
-        project_dir.write(JSON_PROJECT_CONFIG_NAME, JSON_CONFIG);
+        project_dir.write(PRIMARY_CONFIG_FILENAMES[2], JSON_CONFIG);
 
         let (project_path, config) =
             load_project_config(Some(project_dir.path().to_str().unwrap())).unwrap();
@@ -220,20 +284,21 @@ target:
     }
 
     #[test]
-    fn prefers_lithos_yml_over_lithos_json() {
+    fn prefers_lithos_yml_over_lithos_yaml_and_json() {
         let project_dir = TempProjectDir::new();
-        project_dir.write(PRIMARY_PROJECT_CONFIG_NAME, YAML_CONFIG);
-        project_dir.write(JSON_PROJECT_CONFIG_NAME, JSON_CONFIG);
+        project_dir.write(PRIMARY_CONFIG_FILENAMES[0], YML_CONFIG);
+        project_dir.write(PRIMARY_CONFIG_FILENAMES[1], YAML_CONFIG);
+        project_dir.write(PRIMARY_CONFIG_FILENAMES[2], JSON_CONFIG);
 
         let (_, config) = load_project_config(Some(project_dir.path().to_str().unwrap())).unwrap();
 
-        assert_eq!(config.environments[0].label, "yaml-preferred");
+        assert_eq!(config.environments[0].label, "yml-preferred");
     }
 
     #[test]
     fn loads_explicit_lithos_json_path() {
         let project_dir = TempProjectDir::new();
-        let config_path = project_dir.write(JSON_PROJECT_CONFIG_NAME, JSON_CONFIG);
+        let config_path = project_dir.write(PRIMARY_CONFIG_FILENAMES[2], JSON_CONFIG);
 
         let (project_path, config) =
             load_project_config(Some(config_path.to_str().unwrap())).unwrap();
@@ -243,15 +308,41 @@ target:
     }
 
     #[test]
-    fn missing_config_error_mentions_json_search_path() {
+    fn missing_config_error_mentions_search_path() {
         let project_dir = TempProjectDir::new();
 
         let error = load_project_config(Some(project_dir.path().to_str().unwrap()))
             .err()
             .unwrap();
 
-        assert!(error.contains(PRIMARY_PROJECT_CONFIG_NAME));
-        assert!(error.contains(JSON_PROJECT_CONFIG_NAME));
-        assert!(error.contains(LEGACY_PROJECT_CONFIG_NAME));
+        assert!(error.contains(PRIMARY_CONFIG_FILENAMES[0]));
+        assert!(error.contains(PRIMARY_CONFIG_FILENAMES[1]));
+        assert!(error.contains(PRIMARY_CONFIG_FILENAMES[2]));
+        assert!(error.contains(LEGACY_CONFIG_FILENAMES[0]));
+        assert!(error.contains(LEGACY_CONFIG_FILENAMES[1]));
+    }
+
+    #[test]
+    fn load_project_config_loads_project_dotenv() {
+        let env_key = "LITHOS_TEST_PROJECT_DOTENV_8740";
+        let _env_guard = EnvVarGuard::capture(env_key);
+        env::remove_var(env_key);
+
+        let project_dir = TempProjectDir::new();
+        fs::write(
+            project_dir.path().join(".env"),
+            format!("{}=loaded-from-project\n", env_key),
+        )
+        .expect("project dotenv file should be written");
+        project_dir.write(PRIMARY_CONFIG_FILENAMES[0], YML_CONFIG);
+
+        let project_path = project_dir.path().to_string_lossy().to_string();
+        load_project_config(Some(&project_path)).expect("project config should load successfully");
+
+        assert_eq!(
+            env::var(env_key).as_deref(),
+            Ok("loaded-from-project"),
+            "expected the project root .env file to be loaded"
+        );
     }
 }

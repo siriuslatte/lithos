@@ -1,7 +1,8 @@
 //! Project configuration types.
 //!
 //! This module defines the data shape of the user-facing `lithos.yml` and
-//! `lithos.json` files (plus the legacy `mantle.yml` alias). Two focused
+//! `lithos.yaml`, and `lithos.json` files (plus the legacy `mantle.yml` /
+//! `mantle.yaml` aliases). Two focused
 //! submodules handle
 //! adjacent concerns:
 //!
@@ -49,7 +50,7 @@ pub struct Config {
     /// default('owner')
     ///
     /// Determines which account should make payments when creating resources
-    /// that cost Robux. Note that Mantle will never make purchases unless the
+    /// that cost Robux. Note that Lithos will never make purchases unless the
     /// `--allow-purchases` flag is enabled.
     ///
     /// | Value        | Description                                                                                                                                                                                                                                                              |
@@ -60,7 +61,7 @@ pub struct Config {
     #[serde(default)]
     pub payments: PaymentsConfig,
 
-    /// The list of environments which Mantle can deploy to.
+    /// The list of environments which Lithos can deploy to.
     ///
     /// ```yml title="Example"
     /// environments:
@@ -75,8 +76,8 @@ pub struct Config {
     /// ```
     pub environments: Vec<EnvironmentConfig>,
 
-    /// Defines the target resource which Mantle will deploy to. Currently
-    /// Mantle only supports targeting Experiences, but in the future it will
+    /// Defines the target resource which Lithos will deploy to. Currently
+    /// Lithos only supports targeting Experiences, but in the future it will
     /// support other types like Plugins and Models.
     ///
     /// ```yml title="Example"
@@ -87,13 +88,13 @@ pub struct Config {
 
     /// default('local')
     ///
-    /// Defines how Mantle should manage state files (locally or remotely).
+    /// Defines how Lithos should manage state files (locally or remotely).
     ///
     /// | Value              | Description                                                                                                                                                                                                           |
     /// |--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-    /// | `'local'`          | Mantle will save and load its state to and from a local `.mantle-state.yml` file.                                                                                                                                     |
-    /// | `localKey: <key>`  | Mantle will save and load its state to and from a local file using the provided key with the format `<key>.mantle-state.yml`.                                                                                         |
-    /// | `remote: <config>` | Mantle will save and load its state to and from a remote file stored in a cloud provider. Currently the only supported provider is Amazon S3. For more information, see the [Remote State](/docs/remote-state) guide. |
+    /// | `'local'`          | Lithos will save and load its state to and from a local `.lithos-state.yml` file.                                                                                                                                     |
+    /// | `localKey: <key>`  | Lithos will save and load its state to and from a local file using the provided key with the format `<key>.lithos-state.yml`.                                                                                         |
+    /// | `remote: <config>` | Lithos will save and load its state to and from a remote file stored in a cloud provider. Currently the only supported provider is Amazon S3. For more information, see the [Remote State](/docs/remote-state) guide. |
     ///
     /// ```yml title="Local State Example (Default)"
     /// state: local
@@ -108,11 +109,88 @@ pub struct Config {
     /// state:
     ///   remote:
     ///     region: us-west-1
-    ///     bucket: my-mantle-states
+    ///     bucket: my-lithos-states
     ///     key: pirate-wars
     /// ```
     #[serde(default)]
     pub state: StateConfig,
+
+    /// default({})
+    ///
+    /// Default settings for the `lithos outputs` command.
+    ///
+    /// This lets you keep output-generation details in project config instead
+    /// of repeating `--output`, `--format`, and `--roblox-ts` on every run.
+    /// CLI flags still win when both are provided.
+    ///
+    /// Use either `path` for a full file path, or `writeDir` + `outputName`
+    /// to let Lithos build the file path for you. When `outputName` has no
+    /// extension, Lithos will infer one from `format`; if `robloxTs` is true
+    /// and no format is specified, it defaults to `.luau`.
+    ///
+    /// ```yml title="Outputs Example"
+    /// outputs:
+    ///   writeDir: src/shared/generated
+    ///   outputName: lithosOutputs
+    ///   format: luau
+    ///   robloxTs: true
+    /// ```
+    ///
+    /// Lithos also accepts the legacy-style alias `codegen` plus snake_case
+    /// field names for easier migration from other tools.
+    #[serde(default, alias = "codegen")]
+    pub outputs: OutputsConfig,
+}
+
+#[derive(JsonSchema, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct OutputsConfig {
+    /// A full output file path for `lithos outputs`.
+    ///
+    /// If this is set, do not also set `writeDir` or `outputName`.
+    #[serde(default)]
+    pub path: Option<String>,
+
+    /// A directory relative to the project root where `lithos outputs` should
+    /// write the generated file.
+    #[serde(default, alias = "write_dir")]
+    pub write_dir: Option<String>,
+
+    /// The base name of the generated file. If it has no extension, Lithos
+    /// adds one from `format`.
+    #[serde(default, alias = "output_name")]
+    pub output_name: Option<String>,
+
+    /// The default format for `lithos outputs`.
+    #[serde(default)]
+    pub format: Option<OutputsFormatConfig>,
+
+    /// Whether `lithos outputs` should also generate a `.d.ts` sidecar when
+    /// writing Luau output for roblox-ts.
+    #[serde(default, alias = "typescript", alias = "roblox_ts")]
+    pub roblox_ts: bool,
+}
+
+#[derive(JsonSchema, Deserialize, Clone, Copy, Debug, Eq, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum OutputsFormatConfig {
+    Json,
+    Yaml,
+    Yml,
+    Lua,
+    Luau,
+}
+
+impl OutputsFormatConfig {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Json => "json",
+            Self::Yaml => "yaml",
+            Self::Yml => "yml",
+            Self::Lua => "lua",
+            Self::Luau => "luau",
+        }
+    }
 }
 
 #[derive(JsonSchema, Deserialize, Clone)]
@@ -216,7 +294,7 @@ pub struct RemoteStateConfig {
     ///       custom:
     ///         name: region-name
     ///         endpoint: region-endpoint
-    ///     bucket: my-mantle-states
+    ///     bucket: my-lithos-states
     ///     key: pirate-wars
     /// ```
     #[serde(with = "RegionRef")]
@@ -226,14 +304,14 @@ pub struct RemoteStateConfig {
     pub bucket: String,
 
     /// The key to use to store your state file. The file will be named with the format
-    /// `<key>.mantle-state.yml`.
+    /// `<key>.lithos-state.yml`.
     pub key: String,
 }
 impl fmt::Display for RemoteStateConfig {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{}/{}/{}.mantle-state.yml",
+            "{}/{}/{}.lithos-state.yml",
             self.region.name(),
             self.bucket,
             self.key
@@ -249,9 +327,9 @@ pub struct EnvironmentConfig {
     pub label: String,
 
     /// An array of file globs to match against Git branches. If the
-    /// `--environment` flag is not specified, Mantle will pick the first
+    /// `--environment` flag is not specified, Lithos will pick the first
     /// environment which contains a matching file glob for the current Git
-    /// branch. If no environments match, Mantle will exit with a success code.
+    /// branch. If no environments match, Lithos will exit with a success code.
     #[serde(default)]
     pub branches: Vec<String>,
 
@@ -273,7 +351,7 @@ pub struct EnvironmentConfig {
     ///
     /// | Value                | Description                                                                                                                                                                                                                                                                                                                               |
     /// |----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-    /// | `'environmentLabel'` | The target name prefix will use the format `[<ENVIRONMENT>] ` where `<ENVIRONMENT>` is the value of the environment's [`label`](#environments--label) property in all caps. For example, if the environment's label was `'dev'` and the target's name was "Made with Mantle", the resulting target name will be "[DEV] Made with Mantle". |
+    /// | `'environmentLabel'` | The target name prefix will use the format `[<ENVIRONMENT>] ` where `<ENVIRONMENT>` is the value of the environment's [`label`](#environments--label) property in all caps. For example, if the environment's label was `'dev'` and the target's name was "Made with Lithos", the resulting target name will be "[DEV] Made with Lithos". |
     /// | `custom: <prefix>`   | The target name prefix will be the supplied value.                                                                                                                                                                                                                                                                                        |
     ///
     /// ```yml title="Environment Label Example"
@@ -431,7 +509,7 @@ pub struct ExperienceTargetConfig {
     /// ```
     ///
     /// Because Roblox does not offer any way to delete developer products, when a product is "deleted"
-    /// by Mantle, it is updated in the following ways:
+    /// by Lithos, it is updated in the following ways:
     ///
     /// 1. Its description is updated to: `Name: <name>\nDescription:\n<description>`
     /// 2. Its name is updated to `zzz_Deprecated(<date-time>)` where `<date-time>` is the current
@@ -452,7 +530,7 @@ pub struct ExperienceTargetConfig {
     /// ```
     ///
     /// Because Roblox does not offer any way to delete game passes, when a pass is "deleted" by
-    /// Mantle, it is updated in the following ways:
+    /// Lithos, it is updated in the following ways:
     ///
     /// 1. Its description is updated to: `Name: <name>\nPrice: <price>\nDescription:\n<description>`
     /// 2. Its name is updated to `zzz_Deprecated(<date-time>)` where `<date-time>` is the current date-time
@@ -473,11 +551,11 @@ pub struct ExperienceTargetConfig {
     ///
     /// :::caution
     /// Each user can create up to 5 badges for free every day. After that, badges cost 100 Robux each. By
-    /// default, Mantle does not have permission to make purchases with Robux, so if you go over your daily
+    /// default, Lithos does not have permission to make purchases with Robux, so if you go over your daily
     /// quota, you will need to use the `--allow-purchases` flag to create them.
     /// :::
     ///
-    /// Because Roblox does not offer any way to delete badges, when a badge is "deleted" by Mantle, it is
+    /// Because Roblox does not offer any way to delete badges, when a badge is "deleted" by Lithos, it is
     /// updated in the following ways:
     ///
     /// 1. It is disabled
@@ -511,7 +589,7 @@ pub struct ExperienceTargetConfig {
     /// ```
     ///
     /// :::caution
-    /// Roblox provides each user a monthly quota of audio uploads. Mantle will let you know each time it
+    /// Roblox provides each user a monthly quota of audio uploads. Lithos will let you know each time it
     /// uploads an audio asset how many uploads you have left and when your quota will reset.
     /// :::
     ///
@@ -968,7 +1046,7 @@ pub struct PlaceTargetConfigurationConfig {
     /// display name as well.
     pub name: Option<String>,
 
-    /// default('Created with Mantle')
+    /// default('Created with Lithos')
     ///
     /// The descirption of the place on the Roblox website and in-game. If the
     /// place is an experience's start place, it will be the experience's
@@ -1017,4 +1095,42 @@ pub struct PlaceTargetConfigurationConfig {
     ///             reservedSlots: 5
     /// ```
     pub server_fill: Option<ServerFillTargetConfig>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Config, OutputsFormatConfig};
+
+    #[test]
+    fn outputs_config_supports_codegen_aliases() {
+        let config = serde_yaml::from_str::<Config>(
+            r#"environments:
+    - label: dev
+target:
+    experience:
+        configuration:
+            genre: building
+            playableDevices: [computer]
+        places:
+            start:
+                file: game.rbxlx
+                configuration:
+                    name: Example
+codegen:
+    write_dir: src/shared/generated
+    output_name: lithosOutputs
+    format: luau
+    typescript: true
+"#,
+        )
+        .expect("config with codegen aliases should parse");
+
+        assert_eq!(
+            config.outputs.write_dir.as_deref(),
+            Some("src/shared/generated")
+        );
+        assert_eq!(config.outputs.output_name.as_deref(), Some("lithosOutputs"));
+        assert_eq!(config.outputs.format, Some(OutputsFormatConfig::Luau));
+        assert!(config.outputs.roblox_ts);
+    }
 }
