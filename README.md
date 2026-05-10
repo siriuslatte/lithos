@@ -2,18 +2,15 @@
 
 Infrastructure-as-code for Roblox.
 
-Lithos lets you describe a Roblox experience — places, badges, developer
-products, game passes, thumbnails, social links, notifications, and the like —
-in a single YAML file, and then deploy that description from your terminal or
-from CI. Run it again and it figures out what to create, what to update, and
-what to leave alone. No clicking through the creator dashboard, no forgetting
-to flip a setting, no "wait, which build is on prod?".
+Lithos lets you describe a Roblox experience in YAML or JSON and deploy it
+from your terminal or CI. It manages places, badges, developer products, game
+passes, thumbnails, social links, notifications, and more. Re-run the same
+config and Lithos figures out what to create, update, and leave alone.
 
 It's a continuation of [Mantle](https://github.com/blake-mealey/mantle) by
-Blake Mealey. The project model and CLI surface are intentionally the same;
-existing `mantle.yml`, `mantle.yaml`, and `.mantle-state.yml` files keep
-working. See
-[MIGRATION.md](MIGRATION.md) for the rename details.
+Blake Mealey. The project model and CLI stay intentionally compatible, so
+existing `mantle.yml`, `mantle.yaml`, and `.mantle-state.yml` files still
+work. See [MIGRATION.md](MIGRATION.md) for the rename details.
 
 ```yaml
 # lithos.yml
@@ -44,19 +41,18 @@ lithos deploy --environment dev
 
 ## What it does
 
-- **Plans before it touches anything.** `deploy` shows a preview of every create / update / delete it's about to perform, with field-level summaries for risky resources (a price change on a developer product, a name change on a game pass) and explicit warnings on destructive operations. You can approve or cancel before a single byte hits Roblox.
-- **Runs preflight checks before apply.** Lithos catches common Roblox deploy failures early: missing Open Cloud keys, wrong universe scopes, unsupported target-access combinations, and place files that are close to Roblox's upload limits.
-- **Verifies live state.** Before applying, Lithos checks the persisted state against the actual Roblox API. If something was deleted manually in the dashboard, Lithos notices and re-creates it instead of failing on an update.
-- **Keeps rollback checkpoints.** Every deploy records the last known good graph plus a short apply journal so `lithos undo` can drive an environment back toward that snapshot if a deploy fails or turns out to be bad.
-- **Manages multi-place experiences.** Start places, side places, place files, configurations, thumbnails, icons — all of it.
-- **Handles the assets too.** Images, audio, badges, game passes, developer products, notifications, asset aliases, social links, spatial voice — the things that usually get forgotten on launch day.
-- **Stores state where you want it.** Locally next to your project, or remotely in S3 / Google Cloud Storage so a team or a CI runner can cooperate on the same experience.
+- **Plans before apply.** `deploy` previews every create, update, and delete, with field-level summaries for risky changes and explicit destructive warnings.
+- **Runs preflight checks.** Lithos catches common deploy failures early: missing Open Cloud keys, wrong scopes, unsupported target-access combinations, and oversized place files.
+- **Reconciles live state.** If something was deleted or changed manually in the Roblox dashboard, Lithos detects the drift instead of blindly failing an update.
+- **Keeps rollback checkpoints.** Every deploy records enough history for `lithos undo` to work back toward the last known good state.
+- **Handles multi-place experiences and assets.** Places, thumbnails, badges, products, audio, social links, notifications, asset aliases, and more.
+- **Stores state locally or remotely.** Keep state next to the project or in shared backends such as S3 or Google Cloud Storage.
 
 ## Install
 
 Releases are published from this repository at [`siriuslatte/lithos`](https://github.com/siriuslatte/lithos/releases).
 
-The simplest path:
+Recommended:
 
 **Foreman / Rokit**
 
@@ -77,33 +73,15 @@ your `PATH`. The binary is named `lithos`.
 ```sh
 git clone https://github.com/siriuslatte/lithos
 cd lithos
-cargo install --path lithos
+cargo install --path src/lithos
 ```
 
 You'll need Rust 1.85 or newer.
 
-## Quick start
-
-There's a `getting-started` project under [`examples/`](examples/). Clone the
-repo and try it:
-
-```sh
-cd examples
-lithos deploy projects/getting-started --environment dev
-```
-
-The first run creates an experience and a place; subsequent runs only push what changed. Run `lithos diff --environment dev` any time to see what would happen without actually deploying.
-
-If you're not signed into Roblox Studio on the same machine, set `ROBLOSECURITY` and, for Open Cloud-backed endpoints such as place publishing, `LITHOS_OPEN_CLOUD_API_KEY` (Lithos also accepts `ROBLOX_OPEN_CLOUD_API_KEY`).
-
-Lithos loads `.env` from the resolved project root as well as the current
-working directory, so `lithos deploy path/to/project` still picks up the
-credentials next to that project's config file.
-
 ## Configured outputs
 
-`lithos outputs` can be driven from project config instead of repeating the
-target file path and `--roblox-ts` flags on every invocation.
+`lithos outputs` can read its destination from project config instead of
+repeating the path and `--roblox-ts` flags on every invocation.
 
 ```yaml
 outputs:
@@ -113,16 +91,16 @@ outputs:
   robloxTs: true
 ```
 
-With that in place, this is enough:
+Then this is enough:
 
 ```sh
 lithos outputs --environment dev
 ```
 
 Lithos will write `src/shared/generated/lithosOutputs.luau` plus
-`src/shared/generated/lithosOutputs.d.ts`. The alias `codegen` is also
-accepted, along with Asphalt-style snake_case names such as `write_dir`,
-`output_name`, and `typescript`. CLI flags still override config values.
+`src/shared/generated/lithosOutputs.d.ts`. The aliases `codegen`,
+`write_dir`, `output_name`, and `typescript` are also accepted. CLI flags
+still override config values.
 
 ## CLI
 
@@ -136,7 +114,7 @@ lithos import        Adopt an existing experience into Lithos
 lithos state         Manage local / remote state files
 ```
 
-`lithos --help` and `lithos <command> --help` have the rest.
+`lithos --help` and `lithos <command> --help` cover the rest.
 
 ### Deploy preview flags
 
@@ -144,67 +122,60 @@ lithos state         Manage local / remote state files
 - `--no-preview` — skip the preview entirely (implies `--yes`)
 - `--plain-preview` — render a plain summary (no colors, no box drawing)
 
-In CI / piped contexts Lithos auto-approves after printing a plain summary, so
-existing scripts keep working without changes.
+In CI or other non-interactive contexts, Lithos prints a plain summary and
+auto-approves, so existing scripts keep working.
 
 If a deploy turns out to be bad, `lithos undo --environment <label>` uses the
 last checkpoint recorded for that environment. Undo is best-effort rather than
 transactional: Lithos imports live Roblox state, previews the diff back to the
-checkpoint, and then applies that rollback plan.
+checkpoint, and applies that rollback plan.
 
-## Repository layout
+## Community & repository process
 
-This is a Cargo workspace. The pieces:
+Repository docs:
 
-| Crate                  | Purpose                                                              |
-| ---------------------- | -------------------------------------------------------------------- |
-| `lithos`               | The CLI binary. Commands, plan preview, branded UI chrome.           |
-| `rbx_lithos`           | Project loading, resource graph, reconciliation, state IO.           |
-| `rbx_api`              | Typed Roblox web / Open Cloud API client.                            |
-| `rbx_auth`             | Cookie + Open Cloud key resolution.                                  |
-| `rbx_cookie`           | Reads `.ROBLOSECURITY` from Studio's keychain / Windows credentials. |
-| `gen_schema`           | Emits the JSON schema for `lithos.yml` / `lithos.yaml`.              |
-| `integration_executor` | Drives end-to-end YAML specs in `specs/`.                            |
-| `logger`               | The bracket-prefix tree logger you see in command output.            |
-
-`docs/` is the docs site (Next.js + Nextra). `examples/` is a handful of
-runnable projects.
+- [CONTRIBUTING.md](CONTRIBUTING.md) for repo layout, commands, schema updates, and PR expectations
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for contributor behavior expectations
+- [SECURITY.md](SECURITY.md) for private vulnerability reporting
+- [SUPPORT.md](SUPPORT.md) for best-effort support boundaries
+- [MAINTAINERS.md](MAINTAINERS.md) for the current maintainer list
 
 ## Building and testing
 
 ```sh
 cargo build --workspace
 cargo test --workspace --lib --bins
-cargo clippy -- -D warnings
-cargo fmt
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all
+pnpm --dir docs/site build
 ```
 
-Run `pnpm install` once at the repo root to enable the versioned Husky git
-hooks. The pre-commit hook auto-formats staged Rust files and blocks
-Rust/Cargo commits unless `cargo clippy --workspace --all-targets -- -D warnings`
-passes.
+Run `pnpm install` once at the repo root to enable Husky hooks. The pre-commit
+hook formats staged Rust files and checks
+`cargo clippy --workspace --all-targets -- -D warnings`.
 
-Integration tests under `specs/*.yml` hit real Roblox endpoints. They're opt-in and gated by environment variables; CI runs them in a separate workflow against a dedicated test account.
+If you change config types in `src/rbx_lithos`, regenerate the committed schema
+snapshot and commit it with the code change:
+
+```sh
+cargo run -p gen_schema > test/specs/schema.json
+```
+
+The live integration harness lives in `src/lithos/tests/integration.rs`, while
+the canonical specs and shared assets live under `test/`. Those tests hit real
+Roblox endpoints, so they are opt-in and intentionally excluded from the
+default workspace test path:
+
+```sh
+cargo test -p lithos --test integration -- --test-threads=1
+```
 
 ## Contributing
 
-Bug reports and PRs welcome. Try to include a minimal `lithos.yml` or
-`lithos.yaml` that
-reproduces the issue. The
-[`.github/ISSUE_TEMPLATE`](.github/ISSUE_TEMPLATE) folder has the templates.
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). It is the canonical guide for
+repository layout, Rust-vs-docs workflow, validation commands, schema updates,
+bug report expectations, and pull request expectations.
 
-If you're adding a new resource type, the rough order is:
+For support questions, read [SUPPORT.md](SUPPORT.md). For security issues, do
+not open a public issue; follow [SECURITY.md](SECURITY.md).
 
-1. Add the inputs / outputs structs in `rbx_lithos/src/roblox_resource_manager/`.
-2. Wire them into the desired-graph builder.
-3. Implement the create / update / delete operations against `rbx_api`.
-4. Teach the preview's `summarize` module how to describe field changes.
-5. Add a spec under `specs/` covering the create → update → destroy lifecycle.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
-
-Mantle was originally created by
-[Blake Mealey](https://github.com/blake-mealey). This continuation builds on
-his work and the contributions of everyone who helped shape the original tool.

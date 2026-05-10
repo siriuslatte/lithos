@@ -19,5 +19,11 @@
     "type": "page",
     "href": "https://github.com/siriuslatte/lithos/tree/main/examples",
     "newWindow": true
+  },
+  "community": {
+    "title": "Community",
+    "type": "page",
+    "href": "https://github.com/siriuslatte/lithos#community--repository-process",
+    "newWindow": true
   }
 }
