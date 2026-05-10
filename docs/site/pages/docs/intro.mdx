@@ -4,7 +4,7 @@ import { Callout } from 'nextra-theme-docs';
 
 Lithos is a Roblox infrastructure-as-code tool. You describe the experience
 you want to exist — places, configuration, products, badges, thumbnails,
-social links, spatial voice, notifications — in a YAML file, and Lithos
+social links, spatial voice, notifications — in a YAML or JSON file, and Lithos
 makes Roblox match it.
 
 If you have used Terraform, Pulumi, or AWS CDK before, the model will feel
@@ -13,8 +13,8 @@ you need to use Lithos productively.
 
 ## The three things Lithos owns
 
-1. **A configuration file** (`lithos.yml`) — the source of truth. What you
-   want to exist.
+1. **A configuration file** (`lithos.yml` or `lithos.json`) — the source of
+  truth. What you want to exist.
 2. **A state file** (`.lithos-state.yml`, local or remote) — the current
   graph Lithos believes exists, plus a short deployment history.
 3. **A live API** (Roblox + Open Cloud) — what actually exists *right now*.

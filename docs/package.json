@@ -1,6 +1,7 @@
 {
   "name": "lithos-docs",
   "private": true,
+  "packageManager": "pnpm@9.4.0",
   "scripts": {
     "dev": "turbo run dev",
     "compile": "turbo run compile",
@@ -9,7 +10,7 @@
     "build-schemas": "pnpm --filter scripts build-schemas"
   },
   "dependencies": {
-    "next": "^13.5.6",
-    "turbo": "^1.7.0"
+    "next": "^13.5.11",
+    "turbo": "^2.9.9"
   }
 }

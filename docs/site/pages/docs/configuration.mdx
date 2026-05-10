@@ -26,13 +26,12 @@ export async function getStaticProps() {
 All Lithos commands accept a `PROJECT` argument which tells Lithos where to look for your config file.
 Lithos uses the following rules to find your config file:
 
-1. If the `PROJECT` argument was _not provided_, use the `lithos.yml` file in the current directory as the
-   config file (if it exists).
-2. If the `PROJECT` argument was _a directory_, use the `lithos.yml` file in that directory as
-   the config file (if it exists).
-3. If the `PROJECT` argument was _a file_, use it as the config file (if it exists).
+1. If the `PROJECT` argument was _not provided_, Lithos treats the current directory as the project directory.
+2. If the `PROJECT` argument was _a directory_, Lithos checks that directory for `lithos.yml`, then `lithos.json`, then legacy `mantle.yml`.
+3. If the `PROJECT` argument was _a file_, Lithos uses it directly. Explicit config paths can point to either YAML or JSON files.
 
-If no config file is found, Lithos will exit with an error code.
+If multiple discovered config files are present, Lithos uses the same order: `lithos.yml`, then `lithos.json`, then legacy `mantle.yml`.
+If no config file is found, Lithos exits with an error that lists those search paths in order.
 
 ## File path resolution
 
@@ -70,19 +69,24 @@ target:
 
 Lithos will correctly find the referenced files no matter where you execute Lithos from.
 
-## YAML syntax
+## YAML and JSON syntax
 
-Lithos config files use YAML syntax, and should have either a `.yml` or `.yaml` file extension. To
-quickly get started with the YAML syntax, see "[Learn YAML in Y Minutes](https://learnxinyminutes.com/docs/yaml/)"
+Lithos config files can be written in either YAML or JSON. Directory auto-discovery looks for `lithos.yml`
+and `lithos.json`; the legacy fallback remains `mantle.yml`. Config examples in this guide can be switched
+between YAML and JSON, and the same schema and field names apply to both.
+
+JSONC and comments are not supported.
+
+To quickly get started with YAML syntax, see "[Learn YAML in Y Minutes](https://learnxinyminutes.com/docs/yaml/)"
 or read through the examples in this guide and in the [Examples](https://github.com/siriuslatte/lithos/tree/main/examples)
 repo.
 
 ## Schemas
 
 You can view the JSON schemas for the config files below (only for versions above `0.11.0`). You can also use
-the schema to add autocomplete to your editor while editing your `lithos.yml` files. For VSCode, you can
-install the [YAML](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) extension and add
-the following to your VSCode settings:
+the schema to add autocomplete and validation while editing either YAML or JSON config files. For VS Code,
+install the [YAML](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) extension for YAML
+files and use the built-in JSON language support for JSON files, then add the following to your settings:
 
 <DynamicMarkdown name="schemasSnippet" />
 
