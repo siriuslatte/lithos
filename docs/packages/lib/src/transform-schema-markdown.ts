@@ -1,13 +1,16 @@
 import { JSONSchema7, JSONSchema7Definition } from 'json-schema';
-import { Processor } from 'unified';
 
 interface SchemaTransformerOptions {
   propagateTitle: boolean;
   descriptionKey: string;
 }
 
+interface MarkdownProcessor {
+  process(input: string): Promise<{ value: unknown }>;
+}
+
 export function createSchemaTransformer(
-  processor: Processor,
+  processor: MarkdownProcessor,
   options?: SchemaTransformerOptions
 ) {
   const propagateTitle = options?.propagateTitle ?? false;

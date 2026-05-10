@@ -1,5 +1,6 @@
 export * from './is-defined';
 export * from './flatten-schema-properties';
+export * from './remark-plugins/transform-lithos-config-examples';
 export * from './remark-plugins/translate-to-nextra';
 export * from './releases';
 export * from './schema-transformers';

@@ -1,7 +1,6 @@
-import { Processor } from '@mdx-js/mdx/lib/core';
 import { u } from 'unist-builder';
 import { visit } from 'unist-util-visit';
-import { Plugin } from 'unified';
+import { type Plugin, type Processor } from 'unified';
 
 const calloutTypeToEmoji: Record<string, string> = {
   default: '💡',

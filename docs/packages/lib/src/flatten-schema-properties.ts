@@ -5,6 +5,7 @@ import remarkStringify from 'remark-stringify';
 import { unified } from 'unified';
 import { isDefined } from './is-defined';
 import { extractExamples } from './remark-plugins/extract-examples';
+import { createTransformLithosConfigExamples } from './remark-plugins/transform-lithos-config-examples';
 import { CompileMdx } from './types';
 
 export interface SchemaProperty {
@@ -68,8 +69,16 @@ export async function flattenSchemaProperties(
             : null,
           examplesCompiledContent: examples
             ? await Promise.all(
-                examples.map(
-                  async (example) => (await compileMdx(example)).result
+                examples.map(async (example) =>
+                  (
+                    await compileMdx(example, {
+                      mdxOptions: {
+                        remarkPlugins: [
+                          createTransformLithosConfigExamples({ mode: 'all' }),
+                        ],
+                      },
+                    })
+                  ).result
                 )
               )
             : null,
