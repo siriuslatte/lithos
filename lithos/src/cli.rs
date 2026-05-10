@@ -14,9 +14,11 @@ USAGE:
 {all-args}";
 
 const PROJECT_HELP: &str =
-    "The Lithos project: either the path to a directory containing a 'lithos.yml' or \
-     'lithos.yaml' (or legacy 'mantle.yml' / 'mantle.yaml') file, or the path to a \
-     configuration file. Defaults to the current directory.";
+    "The Lithos project: either the path to a directory containing 'lithos.yml', 'lithos.yaml', \
+     'lithos.json', or legacy 'mantle.yml' / 'mantle.yaml', or the path to a YAML/JSON \
+     configuration file. Directory lookup checks 'lithos.yml', then 'lithos.yaml', then \
+     'lithos.json', then legacy 'mantle.yml', then 'mantle.yaml'. Defaults to the current \
+     directory.";
 
 fn get_app() -> App<'static, 'static> {
     App::new("Lithos")

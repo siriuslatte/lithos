@@ -10,7 +10,7 @@ fallbacks.
 | Old (Mantle)              | New (Lithos)                | Behavior                                  |
 | ------------------------- | --------------------------- | ----------------------------------------- |
 | `mantle` binary           | `lithos` binary             | Same subcommands, same flags              |
-| `mantle.yml` / `mantle.yaml` | `lithos.yml` / `lithos.yaml` | Both are read; Lithos-named files win |
+| `mantle.yml` / `mantle.yaml` | `lithos.yml` / `lithos.yaml` / `lithos.json` | All are read; discovery checks `lithos.yml`, then `lithos.yaml`, then `lithos.json`, then legacy `mantle.yml`, `mantle.yaml` |
 | `.mantle-state.yml`       | `.lithos-state.yml`         | Both are read; `lithos`-named wins        |
 | `<key>.mantle-state.yml`  | `<key>.lithos-state.yml`    | Same fallback for remote S3 keys          |
 | `MANTLE_OPEN_CLOUD_API_KEY` | `LITHOS_OPEN_CLOUD_API_KEY` | Both honored; `LITHOS_*` wins. `ROBLOX_OPEN_CLOUD_API_KEY` is also accepted as an alias. |
@@ -31,13 +31,14 @@ the next save:
 - **Remote state** keys are written to `<key>.lithos-state.yml`. The legacy object remains in S3
   until you delete it.
 - **Project config** is never rewritten by Lithos; rename `mantle.yml` / `mantle.yaml` to
-  `lithos.yml` / `lithos.yaml` at your
-  convenience.
+  `lithos.yml` / `lithos.yaml` at your convenience, or convert it to JSON and
+  save it as `lithos.json`.
 
 ## Recommended steps
 
 1. Update your CI to invoke `lithos` instead of `mantle`.
-2. Rename `mantle.yml` → `lithos.yml` or `mantle.yaml` → `lithos.yaml`.
+2. Rename `mantle.yml` → `lithos.yml` or `mantle.yaml` → `lithos.yaml`. If you prefer JSON, convert the
+  config and save it as `lithos.json`.
 3. Set `LITHOS_OPEN_CLOUD_API_KEY` and `LITHOS_AWS_*` secrets alongside (or instead of) the
   legacy `MANTLE_*` ones. Lithos also accepts `ROBLOX_OPEN_CLOUD_API_KEY`, but `LITHOS_*` is the
   preferred name in project docs and CI.

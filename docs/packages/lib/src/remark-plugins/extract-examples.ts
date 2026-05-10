@@ -1,6 +1,5 @@
-import { Processor } from '@mdx-js/mdx/lib/core';
 import { SKIP, visit } from 'unist-util-visit';
-import { Plugin } from 'unified';
+import { type Plugin, type Processor } from 'unified';
 
 // We render examples in the docs in an aside, so we need to extract the example code blocks from the markdown
 // and render them separately. We look for all code blocks with a filename that includes "Example" and extract

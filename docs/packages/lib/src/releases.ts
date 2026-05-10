@@ -123,14 +123,15 @@ async function saveToCache(releases: Release[]) {
   );
 }
 
-// let releases: Release[] | undefined;
+let releasesPromise: Promise<Release[]> | undefined;
 
 export async function refreshReleasesCache() {
   const releases = await loadFromGitHub();
-  saveToCache(releases);
+  await saveToCache(releases);
+  releasesPromise = undefined;
 }
 
-export async function getReleases() {
+async function loadReleases(): Promise<Release[]> {
   let nextRelease: Release | undefined;
   if (process.env.NODE_ENV === 'development') {
     nextRelease = await getNextRelease();
@@ -159,6 +160,14 @@ export async function getReleases() {
   }
 
   return releases;
+}
+
+export async function getReleases() {
+  if (!releasesPromise) {
+    releasesPromise = loadReleases();
+  }
+
+  return [...(await releasesPromise)];
 }
 
 async function loadBundledSchema(): Promise<Release | undefined> {

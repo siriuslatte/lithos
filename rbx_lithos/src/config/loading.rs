@@ -14,15 +14,8 @@ use yansi::Paint;
 
 use super::Config;
 
-const PRIMARY_CONFIG_FILENAMES: &[&str] = &["lithos.yml", "lithos.yaml"];
+const PRIMARY_CONFIG_FILENAMES: &[&str] = &["lithos.yml", "lithos.yaml", "lithos.json"];
 const LEGACY_CONFIG_FILENAMES: &[&str] = &["mantle.yml", "mantle.yaml"];
-
-fn find_config_path(project_path: &Path, file_names: &[&str]) -> Option<PathBuf> {
-    file_names
-        .iter()
-        .map(|file_name| project_path.join(file_name))
-        .find(|path| path.is_file())
-}
 
 fn config_candidates(project_path: &Path) -> Vec<PathBuf> {
     PRIMARY_CONFIG_FILENAMES
@@ -32,38 +25,68 @@ fn config_candidates(project_path: &Path) -> Vec<PathBuf> {
         .collect()
 }
 
+fn format_project_config_search_order(project_path: &Path) -> String {
+    config_candidates(project_path)
+        .iter()
+        .map(|path| format!("'{}'", path.display()))
+        .collect::<Vec<_>>()
+        .join(", then ")
+}
+
 fn parse_project_path(project: Option<&str>) -> Result<(PathBuf, PathBuf), String> {
     let project = project.unwrap_or(".");
     let project_path = Path::new(project).to_owned();
 
     if project_path.is_dir() {
-        // Prefer the new Lithos config names; fall back to the legacy Mantle
-        // names for backward compatibility.
-        if let Some(config_path) = find_config_path(&project_path, PRIMARY_CONFIG_FILENAMES) {
-            return Ok((project_path, config_path));
+        let existing_configs = config_candidates(&project_path)
+            .iter()
+            .filter(|path| path.is_file())
+            .cloned()
+            .collect::<Vec<_>>();
+
+        if let Some(config_path) = existing_configs.first() {
+            if existing_configs.len() > 1 {
+                let present_configs = existing_configs
+                    .iter()
+                    .map(|path| format!("'{}'", path.file_name().unwrap().to_string_lossy()))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+
+                logger::log(format!(
+                    "{} Found multiple project config files ({}). Using {} because Lithos checks {}.",
+                    Paint::yellow("warning:"),
+                    present_configs,
+                    Paint::cyan(config_path.display()),
+                    format_project_config_search_order(&project_path)
+                ));
+            }
+
+            if LEGACY_CONFIG_FILENAMES.iter().any(|legacy_name| {
+                config_path.file_name().and_then(|name| name.to_str()) == Some(*legacy_name)
+            }) {
+                let legacy_name = config_path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("mantle.yml");
+                logger::log(format!(
+                    "{} Loading legacy '{}'. Lithos checks {}. Rename the file to 'lithos.yml', 'lithos.yaml', or 'lithos.json' to silence this notice.",
+                    Paint::yellow("warning:"),
+                    legacy_name,
+                    format_project_config_search_order(&project_path),
+                ));
+            }
+
+            return Ok((project_path, config_path.clone()));
         }
 
-        if let Some(legacy_config) = find_config_path(&project_path, LEGACY_CONFIG_FILENAMES) {
-            let legacy_name = legacy_config
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or("mantle.yml");
-            logger::log(format!(
-                "{} Loading legacy '{}'. Rename to 'lithos.yml' or 'lithos.yaml' to silence this notice.",
-                Paint::yellow("warning:")
-                , legacy_name
-            ));
-            return Ok((project_path, legacy_config));
-        }
+        return Err(format!(
+            "No project config found in {}. Lithos checks {}.",
+            project_path.display(),
+            format_project_config_search_order(&project_path)
+        ));
+    }
 
-        let tried = config_candidates(&project_path)
-            .into_iter()
-            .map(|path| path.display().to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        return Err(format!("Config file not found (tried {})", tried));
-    } else if project_path.is_file() {
+    if project_path.is_file() {
         return Ok((project_path.parent().unwrap().into(), project_path));
     }
 
@@ -128,10 +151,51 @@ mod tests {
         fs,
         path::{Path, PathBuf},
         process,
+        sync::atomic::{AtomicUsize, Ordering},
         time::{SystemTime, UNIX_EPOCH},
     };
 
-    use super::load_project_config;
+    use super::{load_project_config, LEGACY_CONFIG_FILENAMES, PRIMARY_CONFIG_FILENAMES};
+
+    static NEXT_TEMP_DIR_ID: AtomicUsize = AtomicUsize::new(0);
+
+    const YML_CONFIG: &str = r#"environments:
+  - label: yml-preferred
+    branches: [main]
+target:
+  experience:
+    places:
+      start:
+        file: place.rbxl
+"#;
+
+    const YAML_CONFIG: &str = r#"environments:
+  - label: yaml-supported
+    branches: [main]
+target:
+  experience:
+    places:
+      start:
+        file: place.rbxl
+"#;
+
+    const JSON_CONFIG: &str = r#"{
+  "environments": [
+    {
+      "label": "json-supported",
+      "branches": ["main"]
+    }
+  ],
+  "target": {
+    "experience": {
+      "places": {
+        "start": {
+          "file": "place.rbxl"
+        }
+      }
+    }
+  }
+}"#;
 
     struct EnvVarGuard {
         key: &'static str,
@@ -157,17 +221,23 @@ mod tests {
         }
     }
 
-    struct TempDirGuard {
+    struct TempProjectDir {
         path: PathBuf,
     }
 
-    impl TempDirGuard {
-        fn new(prefix: &str) -> Self {
+    impl TempProjectDir {
+        fn new() -> Self {
             let timestamp = SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .expect("system clock should be after unix epoch")
                 .as_nanos();
-            let path = env::temp_dir().join(format!("{}-{}-{}", prefix, process::id(), timestamp));
+            let mut path = env::temp_dir();
+            path.push(format!(
+                "lithos-config-loading-{}-{}-{}",
+                process::id(),
+                timestamp,
+                NEXT_TEMP_DIR_ID.fetch_add(1, Ordering::Relaxed)
+            ));
             fs::create_dir_all(&path).expect("temp project directory should be created");
             Self { path }
         }
@@ -175,45 +245,81 @@ mod tests {
         fn path(&self) -> &Path {
             &self.path
         }
+
+        fn write(&self, file_name: &str, contents: &str) -> PathBuf {
+            let file_path = self.path.join(file_name);
+            fs::write(&file_path, contents).expect("project config file should be written");
+            file_path
+        }
     }
 
-    impl Drop for TempDirGuard {
+    impl Drop for TempProjectDir {
         fn drop(&mut self) {
             let _ = fs::remove_dir_all(&self.path);
         }
     }
 
-    fn write_minimal_config(project_dir: &TempDirGuard, file_name: &str) {
-        fs::write(
-            project_dir.path().join(file_name),
-            r#"environments:
-    - label: dev
-target:
-    experience:
-        configuration:
-            genre: building
-            playableDevices: [computer]
-        places:
-            start:
-                file: game.rbxlx
-                configuration:
-                    name: Example
-"#,
-        )
-        .expect("project config file should be written");
+    #[test]
+    fn discovers_lithos_yaml_when_directory_has_no_yml_or_json() {
+        let project_dir = TempProjectDir::new();
+        project_dir.write(PRIMARY_CONFIG_FILENAMES[1], YAML_CONFIG);
+
+        let (project_path, config) =
+            load_project_config(Some(project_dir.path().to_str().unwrap())).unwrap();
+
+        assert_eq!(project_path, project_dir.path());
+        assert_eq!(config.environments[0].label, "yaml-supported");
     }
 
     #[test]
-    fn yaml_config_filenames_are_discovered() {
-        let project_dir = TempDirGuard::new("lithos-project-yaml-config");
-        write_minimal_config(&project_dir, "lithos.yaml");
+    fn discovers_lithos_json_when_directory_has_no_yaml() {
+        let project_dir = TempProjectDir::new();
+        project_dir.write(PRIMARY_CONFIG_FILENAMES[2], JSON_CONFIG);
 
-        let project_path = project_dir.path().to_string_lossy().to_string();
-        let (resolved_project_path, config) =
-            load_project_config(Some(&project_path)).expect("yaml config should load");
+        let (project_path, config) =
+            load_project_config(Some(project_dir.path().to_str().unwrap())).unwrap();
 
-        assert_eq!(resolved_project_path, project_dir.path());
-        assert_eq!(config.environments[0].label, "dev");
+        assert_eq!(project_path, project_dir.path());
+        assert_eq!(config.environments[0].label, "json-supported");
+    }
+
+    #[test]
+    fn prefers_lithos_yml_over_lithos_yaml_and_json() {
+        let project_dir = TempProjectDir::new();
+        project_dir.write(PRIMARY_CONFIG_FILENAMES[0], YML_CONFIG);
+        project_dir.write(PRIMARY_CONFIG_FILENAMES[1], YAML_CONFIG);
+        project_dir.write(PRIMARY_CONFIG_FILENAMES[2], JSON_CONFIG);
+
+        let (_, config) = load_project_config(Some(project_dir.path().to_str().unwrap())).unwrap();
+
+        assert_eq!(config.environments[0].label, "yml-preferred");
+    }
+
+    #[test]
+    fn loads_explicit_lithos_json_path() {
+        let project_dir = TempProjectDir::new();
+        let config_path = project_dir.write(PRIMARY_CONFIG_FILENAMES[2], JSON_CONFIG);
+
+        let (project_path, config) =
+            load_project_config(Some(config_path.to_str().unwrap())).unwrap();
+
+        assert_eq!(project_path, project_dir.path());
+        assert_eq!(config.environments[0].label, "json-supported");
+    }
+
+    #[test]
+    fn missing_config_error_mentions_search_path() {
+        let project_dir = TempProjectDir::new();
+
+        let error = load_project_config(Some(project_dir.path().to_str().unwrap()))
+            .err()
+            .unwrap();
+
+        assert!(error.contains(PRIMARY_CONFIG_FILENAMES[0]));
+        assert!(error.contains(PRIMARY_CONFIG_FILENAMES[1]));
+        assert!(error.contains(PRIMARY_CONFIG_FILENAMES[2]));
+        assert!(error.contains(LEGACY_CONFIG_FILENAMES[0]));
+        assert!(error.contains(LEGACY_CONFIG_FILENAMES[1]));
     }
 
     #[test]
@@ -222,13 +328,13 @@ target:
         let _env_guard = EnvVarGuard::capture(env_key);
         env::remove_var(env_key);
 
-        let project_dir = TempDirGuard::new("lithos-project-dotenv");
+        let project_dir = TempProjectDir::new();
         fs::write(
             project_dir.path().join(".env"),
             format!("{}=loaded-from-project\n", env_key),
         )
         .expect("project dotenv file should be written");
-        write_minimal_config(&project_dir, "lithos.yml");
+        project_dir.write(PRIMARY_CONFIG_FILENAMES[0], YML_CONFIG);
 
         let project_path = project_dir.path().to_string_lossy().to_string();
         load_project_config(Some(&project_path)).expect("project config should load successfully");
