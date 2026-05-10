@@ -2,7 +2,7 @@
 name = "lithos"
 version = "0.2.0"
 edition = "2021"
-description = "Infra-as-code and deployment tool for Roblox (formerly Mantle)"
+description = "Infra-as-code and deployment tool for Roblox"
 license = "MIT"
 publish = false
 

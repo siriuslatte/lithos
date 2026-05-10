@@ -9,7 +9,7 @@ use std::time::Duration;
 #[derive(Clone, Debug)]
 pub struct AwsCredentialsProvider {
     lithos_environment_provider: EnvironmentProvider,
-    prefixed_environment_provider: EnvironmentProvider,
+    mantle_environment_provider: EnvironmentProvider,
     environment_provider: EnvironmentProvider,
     profile_provider: Option<ProfileProvider>,
     container_provider: Option<ContainerProvider>,
@@ -19,8 +19,6 @@ pub struct AwsCredentialsProvider {
 impl AwsCredentialsProvider {
     pub fn new() -> AwsCredentialsProvider {
         let mut inherit_iam_role = false;
-        // Accept both LITHOS_AWS_INHERIT_IAM_ROLE (preferred) and the legacy
-        // MANTLE_AWS_INHERIT_IAM_ROLE for backward compatibility.
         for var in ["LITHOS_AWS_INHERIT_IAM_ROLE", "MANTLE_AWS_INHERIT_IAM_ROLE"] {
             if let Ok(value) = env::var(var) {
                 if value == "true" {
@@ -31,7 +29,7 @@ impl AwsCredentialsProvider {
 
         AwsCredentialsProvider {
             lithos_environment_provider: EnvironmentProvider::with_prefix("LITHOS_AWS"),
-            prefixed_environment_provider: EnvironmentProvider::with_prefix("MANTLE_AWS"),
+            mantle_environment_provider: EnvironmentProvider::with_prefix("MANTLE_AWS"),
             environment_provider: EnvironmentProvider::default(),
             profile_provider: ProfileProvider::new().ok(),
             container_provider: if inherit_iam_role {
@@ -58,7 +56,7 @@ async fn chain_provider_credentials(
     if let Ok(creds) = provider.lithos_environment_provider.credentials().await {
         return Ok(creds);
     }
-    if let Ok(creds) = provider.prefixed_environment_provider.credentials().await {
+    if let Ok(creds) = provider.mantle_environment_provider.credentials().await {
         return Ok(creds);
     }
     if let Ok(creds) = provider.environment_provider.credentials().await {

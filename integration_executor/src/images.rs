@@ -27,7 +27,7 @@ pub fn create(width: u32, height: u32, center_text: &str) -> RgbImage {
     };
 
     // Bottom watermark
-    let text = "Mantle Integration Test";
+    let text = "Lithos Integration Test";
     let scale = Scale::uniform(18.0 * scale_factor);
     let (w, h) = text_size(scale, &font, text);
     draw_text_mut(

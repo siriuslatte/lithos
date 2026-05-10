@@ -92,10 +92,8 @@ when both are present; renaming silences the legacy-file warning.
 ### 4. Update environment variables
 
 In your CI secrets, in your `.env` files, and in your team docs, replace
-the `MANTLE_*` variables with `LITHOS_*`. Both work, but `LITHOS_*` is
-preferred and `MANTLE_*` will be removed in a future release. Lithos also
-accepts `ROBLOX_OPEN_CLOUD_API_KEY`, but `LITHOS_OPEN_CLOUD_API_KEY` is the
-recommended project-facing name.
+the `MANTLE_*` variables with `LITHOS_*` when convenient. Both work; `LITHOS_*` is
+preferred and `ROBLOX_OPEN_CLOUD_API_KEY` is also accepted as an alias.
 
 ```diff filename=".env"
 - MANTLE_OPEN_CLOUD_API_KEY="…"

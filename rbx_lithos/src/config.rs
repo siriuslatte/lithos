@@ -1,7 +1,7 @@
 //! Project configuration types.
 //!
 //! This module defines the data shape of the user-facing `lithos.yml` file
-//! (and its legacy `mantle.yml` alias). Two focused submodules handle
+//! used by Lithos. Two focused submodules handle
 //! adjacent concerns:
 //!
 //! - [`loading`] – reads and parses the YAML file from disk.
@@ -48,7 +48,7 @@ pub struct Config {
     /// default('owner')
     ///
     /// Determines which account should make payments when creating resources
-    /// that cost Robux. Note that Mantle will never make purchases unless the
+    /// that cost Robux. Note that Lithos will never make purchases unless the
     /// `--allow-purchases` flag is enabled.
     ///
     /// | Value        | Description                                                                                                                                                                                                                                                              |
@@ -59,7 +59,7 @@ pub struct Config {
     #[serde(default)]
     pub payments: PaymentsConfig,
 
-    /// The list of environments which Mantle can deploy to.
+    /// The list of environments which Lithos can deploy to.
     ///
     /// ```yml title="Example"
     /// environments:
@@ -74,8 +74,8 @@ pub struct Config {
     /// ```
     pub environments: Vec<EnvironmentConfig>,
 
-    /// Defines the target resource which Mantle will deploy to. Currently
-    /// Mantle only supports targeting Experiences, but in the future it will
+    /// Defines the target resource which Lithos will deploy to. Currently
+    /// Lithos only supports targeting Experiences, but in the future it will
     /// support other types like Plugins and Models.
     ///
     /// ```yml title="Example"
@@ -86,13 +86,13 @@ pub struct Config {
 
     /// default('local')
     ///
-    /// Defines how Mantle should manage state files (locally or remotely).
+    /// Defines how Lithos should manage state files (locally or remotely).
     ///
     /// | Value              | Description                                                                                                                                                                                                           |
     /// |--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-    /// | `'local'`          | Mantle will save and load its state to and from a local `.mantle-state.yml` file.                                                                                                                                     |
-    /// | `localKey: <key>`  | Mantle will save and load its state to and from a local file using the provided key with the format `<key>.mantle-state.yml`.                                                                                         |
-    /// | `remote: <config>` | Mantle will save and load its state to and from a remote file stored in a cloud provider. Currently the only supported provider is Amazon S3. For more information, see the [Remote State](/docs/remote-state) guide. |
+    /// | `'local'`          | Lithos will save and load its state to and from a local `.lithos-state.yml` file.                                                                                                                                     |
+    /// | `localKey: <key>`  | Lithos will save and load its state to and from a local file using the provided key with the format `<key>.lithos-state.yml`.                                                                                         |
+    /// | `remote: <config>` | Lithos will save and load its state to and from a remote file stored in a cloud provider. Currently the only supported provider is Amazon S3. For more information, see the [Remote State](/docs/remote-state) guide. |
     ///
     /// ```yml title="Local State Example (Default)"
     /// state: local
@@ -107,7 +107,7 @@ pub struct Config {
     /// state:
     ///   remote:
     ///     region: us-west-1
-    ///     bucket: my-mantle-states
+    ///     bucket: my-lithos-states
     ///     key: pirate-wars
     /// ```
     #[serde(default)]
@@ -215,7 +215,7 @@ pub struct RemoteStateConfig {
     ///       custom:
     ///         name: region-name
     ///         endpoint: region-endpoint
-    ///     bucket: my-mantle-states
+    ///     bucket: my-lithos-states
     ///     key: pirate-wars
     /// ```
     #[serde(with = "RegionRef")]
@@ -225,14 +225,14 @@ pub struct RemoteStateConfig {
     pub bucket: String,
 
     /// The key to use to store your state file. The file will be named with the format
-    /// `<key>.mantle-state.yml`.
+    /// `<key>.lithos-state.yml`.
     pub key: String,
 }
 impl fmt::Display for RemoteStateConfig {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
-            "{}/{}/{}.mantle-state.yml",
+            "{}/{}/{}.lithos-state.yml",
             self.region.name(),
             self.bucket,
             self.key
@@ -248,9 +248,9 @@ pub struct EnvironmentConfig {
     pub label: String,
 
     /// An array of file globs to match against Git branches. If the
-    /// `--environment` flag is not specified, Mantle will pick the first
+    /// `--environment` flag is not specified, Lithos will pick the first
     /// environment which contains a matching file glob for the current Git
-    /// branch. If no environments match, Mantle will exit with a success code.
+    /// branch. If no environments match, Lithos will exit with a success code.
     #[serde(default)]
     pub branches: Vec<String>,
 
@@ -272,7 +272,7 @@ pub struct EnvironmentConfig {
     ///
     /// | Value                | Description                                                                                                                                                                                                                                                                                                                               |
     /// |----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-    /// | `'environmentLabel'` | The target name prefix will use the format `[<ENVIRONMENT>] ` where `<ENVIRONMENT>` is the value of the environment's [`label`](#environments--label) property in all caps. For example, if the environment's label was `'dev'` and the target's name was "Made with Mantle", the resulting target name will be "[DEV] Made with Mantle". |
+    /// | `'environmentLabel'` | The target name prefix will use the format `[<ENVIRONMENT>] ` where `<ENVIRONMENT>` is the value of the environment's [`label`](#environments--label) property in all caps. For example, if the environment's label was `'dev'` and the target's name was "Made with Lithos", the resulting target name will be "[DEV] Made with Lithos". |
     /// | `custom: <prefix>`   | The target name prefix will be the supplied value.                                                                                                                                                                                                                                                                                        |
     ///
     /// ```yml title="Environment Label Example"
@@ -430,7 +430,7 @@ pub struct ExperienceTargetConfig {
     /// ```
     ///
     /// Because Roblox does not offer any way to delete developer products, when a product is "deleted"
-    /// by Mantle, it is updated in the following ways:
+    /// by Lithos, it is updated in the following ways:
     ///
     /// 1. Its description is updated to: `Name: <name>\nDescription:\n<description>`
     /// 2. Its name is updated to `zzz_Deprecated(<date-time>)` where `<date-time>` is the current
@@ -451,7 +451,7 @@ pub struct ExperienceTargetConfig {
     /// ```
     ///
     /// Because Roblox does not offer any way to delete game passes, when a pass is "deleted" by
-    /// Mantle, it is updated in the following ways:
+    /// Lithos, it is updated in the following ways:
     ///
     /// 1. Its description is updated to: `Name: <name>\nPrice: <price>\nDescription:\n<description>`
     /// 2. Its name is updated to `zzz_Deprecated(<date-time>)` where `<date-time>` is the current date-time
@@ -472,11 +472,11 @@ pub struct ExperienceTargetConfig {
     ///
     /// :::caution
     /// Each user can create up to 5 badges for free every day. After that, badges cost 100 Robux each. By
-    /// default, Mantle does not have permission to make purchases with Robux, so if you go over your daily
+    /// default, Lithos does not have permission to make purchases with Robux, so if you go over your daily
     /// quota, you will need to use the `--allow-purchases` flag to create them.
     /// :::
     ///
-    /// Because Roblox does not offer any way to delete badges, when a badge is "deleted" by Mantle, it is
+    /// Because Roblox does not offer any way to delete badges, when a badge is "deleted" by Lithos, it is
     /// updated in the following ways:
     ///
     /// 1. It is disabled
@@ -510,7 +510,7 @@ pub struct ExperienceTargetConfig {
     /// ```
     ///
     /// :::caution
-    /// Roblox provides each user a monthly quota of audio uploads. Mantle will let you know each time it
+    /// Roblox provides each user a monthly quota of audio uploads. Lithos will let you know each time it
     /// uploads an audio asset how many uploads you have left and when your quota will reset.
     /// :::
     ///
@@ -967,7 +967,7 @@ pub struct PlaceTargetConfigurationConfig {
     /// display name as well.
     pub name: Option<String>,
 
-    /// default('Created with Mantle')
+    /// default('Created with Lithos')
     ///
     /// The descirption of the place on the Roblox website and in-game. If the
     /// place is an experience's start place, it will be the experience's

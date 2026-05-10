@@ -52,7 +52,7 @@ impl Default for PlaceConfigurationModel {
     fn default() -> Self {
         PlaceConfigurationModel {
             name: DEFAULT_PLACE_NAME.to_owned(),
-            description: "Created with Mantle".to_owned(),
+            description: "Created with Lithos".to_owned(),
             max_player_count: 50,
             allow_copying: false,
             social_slot_type: SocialSlotType::Automatic,

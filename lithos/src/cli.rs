@@ -20,7 +20,7 @@ const PROJECT_HELP: &str =
 fn get_app() -> App<'static, 'static> {
     App::new("Lithos")
         .version(crate_version!())
-        .about("Infra-as-code and deployment tool for Roblox (formerly Mantle)")
+        .about("Infra-as-code and deployment tool for Roblox")
         .template(HELP_TEMPLATE)
         .setting(AppSettings::ArgRequiredElseHelp)
         .setting(AppSettings::VersionlessSubcommands)
