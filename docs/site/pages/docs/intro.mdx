@@ -1,15 +1,15 @@
 import { Callout } from 'nextra-theme-docs';
+import { DocsIntroShowcase } from '../../components/docs-intro-showcase';
 
-# What is Lithos?
+# Introduction
 
-Lithos is a Roblox infrastructure-as-code tool. You describe the experience
-you want to exist — places, configuration, products, badges, thumbnails,
-social links, spatial voice, notifications — in a YAML or JSON file, and Lithos
-makes Roblox match it.
+Lithos is Roblox infrastructure-as-code. It keeps config, persisted state,
+and the live Roblox API in sync so deploys stay reviewable and repeatable.
 
 If you have used Terraform, Pulumi, or AWS CDK before, the model will feel
-familiar. If you have not, the rest of this page is the only mental model
-you need to use Lithos productively.
+familiar. If you have not, this page covers the core model you need.
+
+<DocsIntroShowcase />
 
 ## The three things Lithos owns
 
@@ -24,36 +24,30 @@ in that order: read config, read state, verify state against the live API,
 plan a diff, apply it, write new state.
 
 <Callout type="info">
-  This is the most important sentence in these docs: **state is what Lithos
-  thinks exists; the live API is what really exists.** When they disagree,
-  Lithos calls that *drift*, and reconciles it before doing anything
-  destructive.
+  **State is what Lithos thinks exists. The live API is what actually
+  exists.** When they disagree, Lithos treats it as drift and reconciles
+  before destructive work.
 </Callout>
 
 <Callout type="info">
-  Lithos also stores recent deployment checkpoints in state. That history is
-  what powers `lithos undo`.
+  State also stores recent deployment checkpoints. `lithos undo` rolls back
+  toward those snapshots.
 </Callout>
 
-## What "infrastructure-as-code" buys you
+## Why it matters
 
-You probably already have a `game.rbxlx` in source control. Lithos extends
-that idea to the surrounding metadata that today lives in Studio dialogs and
-the Creator Hub: place names, server sizes, products, passes, badges,
-thumbnails, social links, voice settings. All of it becomes a code review,
-not a click-through.
-
-The practical consequence:
+Lithos moves the metadata that usually lives in Studio and Creator Hub into
+source control: place names, server settings, products, passes, badges,
+thumbnails, social links, voice settings, and more.
 
 - Every deploy is **reviewable**: a plan preview shows exactly which fields
   on which resources will change, before any byte hits Roblox.
-- Every change is **rollback-able**: revert the YAML and redeploy when you are
-  intentionally changing desired state, or run `lithos undo` to drive Roblox
-  back to the last recorded checkpoint.
+- Every rollback is **explicit**: revert the YAML and redeploy, or use
+  `lithos undo` to drive Roblox back toward the last checkpoint.
 - Every environment is **reproducible**: `dev` and `prod` come from the same
   config with declarative overrides, not parallel checklists.
-- Every CI pipeline is **boring**: a single binary, a state file in S3 or
-  R2, and three secrets.
+- Every CI pipeline is **predictable**: one binary, one state file, and a
+  small set of secrets.
 
 ## What Lithos is not
 
@@ -82,13 +76,11 @@ target:
 $ lithos deploy
 ```
 
-That creates a Roblox experience, uploads `game.rbxlx` as its start place,
-sets the place name and genre, and writes a state file recording the
-resulting asset IDs plus the deployment checkpoint. Re-run the command and
-Lithos does nothing — state matches config, nothing to do.
+On first deploy, Lithos creates the experience, uploads `game.rbxlx`, and
+writes the resulting IDs to state. Run the same command again and it noops
+unless the inputs changed.
 
-Change the place name in the YAML and re-run, and Lithos updates exactly
-that one field, in place, with no other side effects.
+Change the place name and redeploy, and Lithos updates exactly that field.
 
 ## Where to go next
 
@@ -101,4 +93,4 @@ that one field, in place, with no other side effects.
 - **[Environments](/docs/concepts/environments)** — how `dev` and `prod`
   share a single config.
 
-If you are coming from Mantle, read **[Migrating from Mantle](/docs/guides/migrating-from-mantle)** first.
+Coming from Mantle? Read **[Migrating from Mantle](/docs/guides/migrating-from-mantle)**.

@@ -2,10 +2,9 @@ import { Callout, Tabs, Tab } from 'nextra-theme-docs';
 
 # Authentication
 
-Lithos talks to three external systems: Roblox legacy site APIs, Roblox
-Open Cloud, and (optionally) an S3-compatible bucket for remote state.
-Each needs its own credential. None of them are stored or transmitted by
-Lithos — they live in environment variables and `.env` files you control.
+Lithos usually needs `ROBLOSECURITY` and an Open Cloud key. Add S3
+credentials only if you use remote state. Keep them in environment
+variables or a project `.env` file.
 
 | Credential | Used for | Required for |
 | --- | --- | --- |
@@ -18,13 +17,11 @@ Lithos still honors the legacy `MANTLE_*` names. See
 
 ## `ROBLOSECURITY`
 
-This is the same browser cookie Roblox uses to keep you logged in to
-[roblox.com](https://www.roblox.com) and Roblox Studio. Lithos prefers
-**not** to require you to extract it manually:
+This is the same browser cookie Roblox uses for [roblox.com](https://www.roblox.com)
+and Roblox Studio. Lithos tries to read it for you first:
 
-- **If you are signed in to Roblox Studio on this machine**, Lithos picks
-  the cookie up from the OS keychain (Windows Credential Manager / macOS
-  Keychain). Nothing for you to do.
+- **If Roblox Studio is signed in on this machine**, Lithos can usually read
+  the cookie from the OS keychain.
 - **If not**, set it explicitly:
 
   <Tabs items={["Bash / zsh", "PowerShell"]}>
@@ -44,14 +41,13 @@ This is the same browser cookie Roblox uses to keep you logged in to
 
 <Callout type="warning">
   A `ROBLOSECURITY` cookie is the equivalent of your Roblox password.
-  Never commit it to Git. Add `.env` to `.gitignore`. Rotate it
-  immediately if it leaks (Account → Security → Sign out of all sessions).
+  Never commit it. Add `.env` to `.gitignore`, and rotate the cookie if it
+  leaks.
 </Callout>
 
 ### Extracting the cookie manually
 
-If automatic detection does not find your cookie (common on headless CI
-or new machines):
+If automatic detection does not find the cookie:
 
 1. Sign in to [roblox.com](https://www.roblox.com) in any modern browser.
 2. Open DevTools → Application → Cookies → `https://www.roblox.com`.
@@ -60,8 +56,10 @@ or new machines):
 
 ## `LITHOS_OPEN_CLOUD_API_KEY` (preferred)
 
-Roblox Open Cloud is the modern, scoped, server-to-server API. You will
-want a key for almost every project:
+Use `LITHOS_OPEN_CLOUD_API_KEY` in new setups. Lithos also accepts
+`ROBLOX_OPEN_CLOUD_API_KEY` and `MANTLE_OPEN_CLOUD_API_KEY`.
+
+To create a key:
 
 1. Go to the [Creator Hub credentials page](https://create.roblox.com/dashboard/credentials).
 2. Create a new API key.
@@ -69,8 +67,7 @@ want a key for almost every project:
 4. Grant the operations Lithos needs:
    - `universe-places:write` — for publishing places.
    - `asset:read`, `asset:write` — for uploading image and audio assets.
-5. Optionally restrict the key by IP. CI runners often have stable
-   egress IPs you can pin.
+5. Optionally restrict the key by IP.
 6. Set the key.
 
 Example `.env` entry:
@@ -79,44 +76,34 @@ Example `.env` entry:
 LITHOS_OPEN_CLOUD_API_KEY="…"
 ```
 
-Lithos also accepts `ROBLOX_OPEN_CLOUD_API_KEY` and the legacy
-`MANTLE_OPEN_CLOUD_API_KEY`, but `LITHOS_OPEN_CLOUD_API_KEY` is the
-preferred name for docs and CI.
-
-Deploy preflight now introspects this key before apply when possible. If the
-key is missing, lacks `universe-places.write`, or is scoped to the wrong
-universe, Lithos stops early and prints the likely cause plus next steps.
+Deploy preflight checks this key before apply when it can. Missing or
+mis-scoped keys fail early.
 
 ## AWS credentials (only for remote state)
 
-If you use **[remote state](/docs/remote-state)**, Lithos needs S3 (or R2,
-or any S3-compatible) credentials with `Get` / `Put` / `List` on the state
-prefix.
+If you use **[remote state](/docs/remote-state)**, Lithos needs S3-compatible
+credentials with read and write access to the state object.
 
 ```shell filename=".env"
 LITHOS_AWS_ACCESS_KEY_ID="…"
 LITHOS_AWS_SECRET_ACCESS_KEY="…"
 ```
 
-For workloads running on AWS infrastructure (EC2 instance profiles, ECS
-task roles, EKS service accounts), set:
+For workloads running with an AWS role, set:
 
 ```shell
 LITHOS_AWS_INHERIT_IAM_ROLE=1
 ```
 
-and Lithos will pick up the ambient role instead of looking for explicit
-keys.
+and Lithos will use the ambient role instead of explicit keys.
 
-R2-specific configuration (account ID, endpoint, scope) is documented on
+R2-specific setup is documented on
 **[Cloudflare R2 remote state](/docs/remote-state/cloudflare-r2)**.
 
 ## Using a `.env` file
 
-Lithos automatically loads a `.env` file from the project root and from
-the current working directory. The file is dotenv-format
-(`KEY="value"` per line, `#` comments). This is the recommended way to
-hold secrets locally:
+Lithos automatically loads `.env` from the project root and from the current
+working directory. This is the recommended way to keep secrets locally.
 
 If you invoke Lithos from outside the project, for example
 `lithos outputs path/to/project`, it still loads the `.env` next to the
@@ -137,5 +124,4 @@ LITHOS_AWS_SECRET_ACCESS_KEY="…"
 .env.*
 ```
 
-Never check `.env` in. The same file in CI should be replaced by
-encrypted secrets injected as real environment variables.
+Do not commit `.env`. In CI, inject the same values as secrets.

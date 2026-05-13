@@ -2,8 +2,7 @@ import { Callout } from 'nextra-theme-docs';
 
 # CLI reference
 
-Every Lithos workflow is one of six subcommands. This page is the working
-reference; for the full machine-readable surface, run `lithos --help` or
+Lithos has six subcommands. For flag-level detail, run `lithos --help` or
 `lithos <subcommand> --help`.
 
 | Command | Purpose |
@@ -16,10 +15,8 @@ reference; for the full machine-readable surface, run `lithos --help` or
 | [`import`](#import) | Adopt an existing experience into a Lithos project. |
 
 All commands accept a positional `PROJECT` argument. If omitted, Lithos
-looks for `lithos.yml`, then `lithos.yaml`, then the legacy `mantle.yml`
-and `mantle.yaml` in the current directory; if provided as a directory,
-Lithos looks inside it; if provided as a file, Lithos uses that file
-directly. See
+searches the current directory. If it is a directory, Lithos searches inside
+it. If it is a file, Lithos uses that file directly. See
 [Configuration → Config file resolution](/docs/configuration#config-file-resolution).
 
 ## `deploy`
@@ -28,58 +25,40 @@ directly. See
 $ lithos deploy [PROJECT] --environment <label> [flags]
 ```
 
-The default workflow. `deploy` runs the pipeline described in
-**[The resource graph](/docs/concepts/resource-graph#how-a-deploy-unfolds)**:
-load config and state, reconcile state against the live Roblox API, build
-the desired graph, run preflight diagnostics, render a plan preview, prompt
-for confirmation, checkpoint the current environment state, and apply the diff
-in dependency order.
+`deploy` is the normal workflow: load config and state, reconcile them
+against Roblox, run preflight, show a plan, checkpoint the current graph,
+and apply the diff in dependency order.
 
 ### Live reconciliation
 
-Before computing any diff, `deploy` asks Roblox to confirm that the
-resources persisted in state still exist. Each resource is classified as
-`verified`, `missing`, `skipped`, or `unknown`. Resources confirmed
-**missing** are dropped from the previous-state graph so the next plan
-re-creates them rather than producing a broken update against a deleted
-asset. Resources whose verification is **inconclusive** (permission denied,
-network error) are preserved unchanged so behavior degrades safely.
+Before diffing, `deploy` checks that the resources recorded in state still
+exist. Each one ends up `verified`, `missing`, `skipped`, or `unknown`.
 
-Verified resource types: experiences, places, game passes, developer
-products. Sub-resources (configurations, thumbnails, ordering, place files,
-badges, image/audio assets, asset aliases, social links, spatial voice,
-notifications) are skipped intentionally — they have no cheap, authoritative
-existence endpoint, and their drift is implied by the verification of
-their parent.
+- `missing`: drop it from state so the next plan recreates it.
+- `unknown`: keep it in state so the deploy fails safe on transient API
+  trouble.
+
+Lithos currently verifies experiences, places, game passes, and developer
+products directly. Sub-resources are inferred from their parent or skipped.
 
 ### Plan preview and confirmation
 
-Before any creates, updates, or deletes hit Roblox, `deploy` renders a
-**plan preview**: a color-coded, structured view of every operation,
-grouped by kind. Risky resources (developer products, game passes,
-badges) get field-level summaries — price, name, description — so you
-can confirm an "update" really is just a price change before approving
-it. Destructive operations on developer products, game passes, badges,
-notifications, experiences, and places are flagged with an explicit
-warning marker.
+Before apply, Lithos prints a structured preview of creates, updates,
+deletes, noops, and skips. Riskier resources show field-level summaries when
+possible, and destructive operations are marked explicitly.
 
-When stdout is an interactive terminal, deploy prompts to confirm before
-applying. Press `y` or Enter to apply; anything else cancels. In
-non-interactive contexts (CI, piped output) deploy auto-approves after
-printing a plain summary, so existing scripts continue to work.
+Interactive terminals prompt for confirmation. Non-interactive stdout
+auto-approves after printing a plain summary so existing scripts keep
+working.
 
 ### Preflight diagnostics and checkpoints
 
-Before approval, `deploy` runs a preflight pass over the plan and auth
-context. This catches the common Roblox failures that are otherwise vague at
-runtime: missing Open Cloud keys, missing `universe-places.write`, API keys
-that do not cover the target universe, unsupported group/public/friends
-combinations, and place files that are close to Roblox's size limits.
+Preflight catches the common Roblox failures before apply: missing Open
+Cloud keys, missing `universe-places.write`, wrong universe scope,
+unsupported access combinations, and oversized place files.
 
-If any preflight diagnostic is blocking, deploy stops before mutating
-anything. If preflight passes, Lithos records a checkpoint of the last known
-good graph so `lithos undo` can roll the environment back toward that
-snapshot later.
+If preflight passes, Lithos records a checkpoint of the current environment
+so `lithos undo` has a baseline.
 
 ### Useful flags
 
@@ -92,9 +71,8 @@ snapshot later.
 | `--allow-purchases` | Allow paid-asset operations (developer products, etc.) without an extra confirm. |
 
 <Callout type="warning">
-  `--no-preview` is a footgun outside of well-tested pipelines. The
-  preview is the only thing standing between you and an unintended
-  delete.
+  Avoid `--no-preview` unless the pipeline already gives you enough
+  confidence in the diff.
 </Callout>
 
 ## `diff`
@@ -103,19 +81,17 @@ snapshot later.
 $ lithos diff [PROJECT] --environment <label> [--live]
 ```
 
-Print the diff between persisted state and project configuration. Useful
-in pull-request CI to comment "what would this PR do?" without applying.
+`diff` prints the plan without applying it. By default it is offline and
+compares config to persisted state.
 
-By default `diff` is **offline** — it does not contact Roblox. Pass
-`--live` to run the same reconciliation pass that `deploy` runs, surface
-drift, and diff against the reconciled previous-state graph:
+Use `--live` to run the same reconciliation pass as `deploy` first:
 
 ```text
 $ lithos diff --environment dev --live
 ```
 
-Use `--live` when you suspect drift; use plain `diff` when you just want
-to know what your YAML changes would do.
+Use plain `diff` for config-only review. Use `--live` when you suspect
+drift.
 
 ## `undo`
 
@@ -123,8 +99,8 @@ to know what your YAML changes would do.
 $ lithos undo [PROJECT] --environment <label> [flags]
 ```
 
-Best-effort rollback to the most recent checkpoint Lithos recorded for an
-environment. `undo` does not read old YAML or Git history. Instead it:
+`undo` rolls an environment back toward its most recent checkpoint. It does
+not read old YAML or Git history. Instead it:
 
 1. Loads the baseline snapshot stored before the last deploy or undo.
 2. Imports the live Roblox experience so rollback plans against reality,
@@ -133,13 +109,11 @@ environment. `undo` does not read old YAML or Git history. Instead it:
 4. Applies the diff back toward that snapshot and records the result.
 
 Use the same preview flags as `deploy`: `--yes`, `--no-preview`, and
-`--plain-preview`. `--allow-purchases` is also supported in case rollback
-needs to recreate a paid resource.
+`--plain-preview`. `--allow-purchases` is also supported.
 
 <Callout type="info">
-  Roblox deploys are not transactional. `undo` is therefore best-effort:
-  it reconciles live state and then drives resources back toward the last
-  checkpoint Lithos recorded.
+  Roblox deploys are not transactional. `undo` reconciles live state and
+  then drives it back toward the last checkpoint Lithos recorded.
 </Callout>
 
 ## `outputs`
@@ -148,18 +122,13 @@ needs to recreate a paid resource.
 $ lithos outputs [PROJECT] --environment <label> [--output <file>] [--format <format>] [--roblox-ts]
 ```
 
-Print the outputs of the last deploy. Stdout still defaults to JSON for CI
-and piping, but when `--output` ends in `.lua` or `.luau`, Lithos infers a
-game-ready Luau module from the file extension. You can also set `--format`
-explicitly to `json`, `yaml`, `yml`, `lua`, or `luau`.
+`outputs` prints the last deploy's outputs. Stdout defaults to JSON.
 
-Pass `--roblox-ts` when writing a Luau module to a file and Lithos will also
-write a matching `.d.ts` sidecar next to it for typed `roblox-ts` imports.
+- `--output` ending in `.lua` or `.luau` implies Luau.
+- `--format` accepts `json`, `yaml`, `yml`, `lua`, and `luau`.
+- `--roblox-ts` writes a `.d.ts` sidecar next to a Luau output.
 
-You can also move those defaults into your project config so `lithos outputs`
-does the file generation with no extra flags. Lithos reads a top-level
-`outputs` block (or the alias `codegen`) and uses it as the default output
-request; explicit CLI flags still win.
+You can also move those defaults into project config:
 
 ```yaml filename="lithos.yml"
 outputs:
@@ -169,7 +138,7 @@ outputs:
   robloxTs: true
 ```
 
-The `codegen` alias also accepts Asphalt-style snake_case names:
+The `codegen` alias with snake_case also works:
 
 ```yaml filename="lithos.yml"
 codegen:
@@ -179,18 +148,22 @@ codegen:
   typescript: true
 ```
 
+Rules to know:
+
+- Use either `path` or `writeDir` + `outputName`, not both.
+- If `outputName` has no extension, Lithos adds one from `format`.
+- If `robloxTs` / `typescript` is enabled and `format` is omitted, Lithos
+  defaults to `.luau`.
+- CLI flags override config values.
+
 With either config, this is enough:
 
 ```text
 $ lithos outputs --environment dev
 ```
 
-When `writeDir` + `outputName` omit an extension, Lithos adds one from
-`format`. If `robloxTs` / `typescript` is enabled and `format` is omitted,
-Lithos defaults to `.luau` so the `.d.ts` sidecar can be generated.
-
 After deploying the [getting-started example](https://github.com/siriuslatte/lithos/tree/main/examples/projects/getting-started),
-running `outputs` with the default JSON format looks like:
+default JSON output looks like:
 
 ```json
 {
@@ -209,8 +182,7 @@ running `outputs` with the default JSON format looks like:
 }
 ```
 
-Generate a Luau module when you want game code to require the outputs
-directly instead of templating JSON into source later:
+To require outputs from game code, write a Luau module:
 
 ```text
 $ lithos outputs --environment dev --output src/shared/generated/lithosOutputs.luau
@@ -224,8 +196,8 @@ local startPlaceId = outputs.experience_singleton.experience.startPlaceId
 local placeVersion = outputs.placeFile_start.placeFile.version
 ```
 
-For `roblox-ts`, keep the generated Luau module as the runtime source and add
-`--roblox-ts` so Lithos also writes `lithosOutputs.d.ts` beside it:
+For `roblox-ts`, add `--roblox-ts` so Lithos also writes
+`lithosOutputs.d.ts` beside it:
 
 ```text
 $ lithos outputs --environment dev --output src/shared/generated/lithosOutputs.luau --roblox-ts
@@ -238,28 +210,18 @@ const startPlaceId = outputs.experience_singleton.experience.startPlaceId;
 const placeVersion = outputs.placeFile_start.placeFile.version;
 ```
 
-If the file path comes from `outputs.path` or `outputs.writeDir` +
-`outputs.outputName`, the same `.d.ts` sidecar behavior applies without
-passing `--roblox-ts` on the command line.
-
 ## `destroy`
 
 ```text
 $ lithos destroy [PROJECT] --environment <label> [--yes]
 ```
 
-Remove every resource Lithos manages for an environment. Lithos cannot
-hard-delete most Roblox asset types, so in practice this archives them
-and clears them from state.
-
-`destroy` is a `deploy` whose diff is "delete everything." It runs the
-same plan preview, the same confirmation prompt, and the same dependency
-ordering. Use the same flags.
+`destroy` applies a full delete plan for the environment. It uses the same
+preview, confirmation, and dependency ordering as `deploy`.
 
 <Callout type="error">
-  `destroy` is irreversible from Lithos's point of view: state is wiped.
-  The Roblox-side assets are archived, not gone, but recovering them and
-  reattaching to a fresh state requires `import` (experimental).
+  From Lithos's point of view, `destroy` is final: state is wiped. Roblox
+  usually archives the assets instead of hard-deleting them.
 </Callout>
 
 ## `import`
@@ -268,20 +230,17 @@ ordering. Use the same flags.
 $ lithos import [PROJECT] --environment <label> --target-id <experience-id>
 ```
 
-Adopt an existing Roblox experience into a Lithos project. This is for the
-case where you already have a published experience and want to start
-managing it with Lithos.
+`import` adopts an existing Roblox experience into a Lithos project. Use it
+when the experience already exists and you want Lithos to manage it.
 
 <Callout type="warning">
   `import` is experimental. It does not match every existing resource to a
-  configured one — most resources will be re-created on the next deploy.
-  **Always test on a staging environment before importing a production
-  experience.**
+  configured one, so many resources will be re-created on the next deploy.
+  **Test it on staging before you point it at production.**
 </Callout>
 
-A safer pattern: build a Lithos config that mirrors your production setup,
-deploy it as a `staging` environment to verify the diff is empty, and only
-then point `import` at production.
+A safer pattern is to mirror production into a `staging` environment first,
+verify that the diff is empty, and only then import production.
 
 ## Exit codes
 
@@ -291,4 +250,4 @@ then point `import` at production.
 | `1` | A user-facing failure. Bad config, auth failure, apply failure, conflicting state, etc. The error message names the cause. |
 | `2` | The command was cancelled at the preview / confirmation step. |
 
-In CI, treat any non-zero exit as fatal.
+In CI, treat any non-zero exit as failure.

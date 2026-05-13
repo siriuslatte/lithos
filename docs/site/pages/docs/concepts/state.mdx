@@ -57,7 +57,7 @@ environments:
             summary: Applied create for experience_singleton
 ```
 
-You will rarely edit this by hand. The two things you should know:
+You will rarely edit this by hand. The important parts are:
 
 - **`fileHash` is how Lithos decides if a place file changed.** Editing
   `game.rbxlx` flips the hash, which produces an update. Touching the file
@@ -65,14 +65,12 @@ You will rarely edit this by hand. The two things you should know:
 - **`outputs.assetId` is the canonical link between a Lithos resource and
   a real Roblox asset.** Lose it and the next deploy will re-create the
   asset from scratch.
-- **`deployments` is the recovery trail.** It records the last few deploys and
+- **`deployments` is the recovery trail.** It records recent deploys and
   undos, including the baseline snapshot and a short journal of what changed.
-  `lithos undo` uses that history rather than guessing from Git.
 
 ## Where the state file lives
 
-Two options. They produce identical state; only the storage backend
-differs. Both include the same current graph and rollback history.
+There are two options. They store the same data; only the backend differs.
 
 ### Local (the default)
 
@@ -100,18 +98,16 @@ Remote state is the right answer when:
 Setup: **[Remote state guide](/docs/remote-state)**.
 
 <Callout type="info">
-  There is no third option. Lithos does not do "no state" — that would mean
-  re-creating every resource on every deploy. Pick local or remote.
+    Lithos does not support "no state." Pick local or remote.
 </Callout>
 
 ## Drift, in one paragraph
 
 Drift is when the live Roblox state and the Lithos state file disagree.
-Most commonly it happens because somebody changed something through the
-Creator Hub or Studio. Lithos's *live reconciliation* pass detects drift
-for the resource types it can cheaply verify (experiences, places, game
-passes, developer products) and updates state to match reality before
-planning the diff. See **[The resource graph](/docs/concepts/resource-graph#drift-and-what-lithos-does-about-it)**.
+Most often, someone changed something through Creator Hub or Studio. The
+live reconciliation pass detects drift for the resource types Lithos can
+verify cheaply and updates state before planning the diff. See
+**[The resource graph](/docs/concepts/resource-graph#drift-and-what-lithos-does-about-it)**.
 
 You can run the reconciliation pass on its own without applying anything:
 
@@ -124,18 +120,14 @@ without prompting and without writing.
 
 ## Legacy `mantle.yml` / `.mantle-state.yml`
 
-Lithos transparently reads both Mantle and Lithos config and state files.
-On any new write, Lithos always uses the Lithos-named files. There is no
-flag day; Mantle projects can be migrated incrementally. See
-**[Migrating from Mantle](/docs/guides/migrating-from-mantle)**.
+Lithos reads both Mantle and Lithos config and state files. New writes use
+the Lithos names. See **[Migrating from Mantle](/docs/guides/migrating-from-mantle)**.
 
 ## Common state-file questions
 
-**Q: My teammate and I both deployed `dev` and now Git can't merge the
+**Q: My teammate and I both deployed `dev` and now Git cannot merge the
 state file.**
-You either need remote state, or you need a convention where only one
-machine deploys `dev` (often: only CI). The state file is not designed
-for parallel writers.
+Use remote state, or make one machine the only writer for that environment.
 
 **Q: Can I delete the state file and start over?**
 Yes, but Lithos will think nothing exists and try to re-create every
@@ -145,11 +137,8 @@ checkpoints recorded in `deployments`. Better: use
 (experimental).
 
 **Q: Can I edit the state file by hand?**
-Technically yes. Practically: only ever as a last resort, and always make
-a backup first. The `outputs` section is what binds Lithos to Roblox
-asset IDs — if you change an `assetId` to one you do not own, the next
-deploy will fail authentication; if you change it to one someone else
-owns, you may inadvertently mutate an asset you are not entitled to.
+Only as a last resort, and always with a backup. Wrong asset IDs can make
+Lithos create duplicates, fail auth, or point at the wrong Roblox asset.
 
 ## Continue with
 

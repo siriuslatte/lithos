@@ -2,25 +2,18 @@
 
 # Remote State
 
-Lithos saves the state of your resources in state files which enables it to make only the required
-changes to your resources after your configuration and files change.
+Lithos can keep state next to `lithos.yml` or in an S3-compatible object
+store. Remote state is the better choice once more than one machine,
+person, or CI job deploys the same project.
 
-By default, Lithos will save your state to a local `.lithos-state.yml` file which you can check-in
-to your Git repo. But Lithos can also save your state to remote files stored in a cloud provider
-which comes with a few benefits.
+Remote state gives every deployer the same current graph and the same recent
+deployment history.
 
-Since a remote state file can be accessed and updated from anywhere, you can share it across
-branches and computers. This makes it less likely your state files gets out of sync with the real
-resources in Roblox, and it is ideal for continuous deployment (CD) scenarios.
-
-Remote state now carries more than the latest resource graph. It also stores a
-short deployment history per environment, including rollback checkpoints and
-apply journals. That means a CI runner and a local operator looking at the
-same remote object also see the same recovery history for `lithos undo`.
+- CI and local machines read the same state.
+- You avoid merging state files in Git.
+- `lithos undo` sees the same checkpoints everywhere.
 
 ### Supported cloud providers
-
-<br />
 
 <Cards>
   <Card title="Amazon S3" href="/docs/remote-state/amazon-s3" />

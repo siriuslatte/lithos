@@ -1,24 +1,21 @@
 ﻿# Install with Foreman (recommended)
 
-[Foreman](https://github.com/Roblox/foreman#readme) is a toolchain manager for Roblox tools. You can
-configure Foreman to install Lithos with the following `foreman.toml` config:
+Foreman is the recommended install path. It pins Lithos per project, keeps
+CI and local machines aligned, and already fits most Roblox toolchains.
 
 ```toml filename="foreman.toml"
 [tools]
 lithos = { source = "siriuslatte/lithos", version = "<version>" }
 ```
 
-You can check for the latest Lithos version on the
+Pick the current version from the
 [releases](https://github.com/siriuslatte/lithos/releases) page.
 
-This is the recommended method as it enables consistent version management across your team,
-provides better interop with other tools, and makes using Lithos in CI environments (especially
-GitHub Action) simpler.
-
-If you need help installing Foreman, check out the [Getting Started](/docs/getting-started#foreman)
-guide.
+If you need Foreman itself, see
+[Getting started](/docs/getting-started#1-install-lithos).
 
 # Manually download from releases (simplest)
 
-You can download prebuilt binaries from the [latest
-release](https://github.com/siriuslatte/lithos/releases).
+If you just want the binary, download the latest build from the
+[releases](https://github.com/siriuslatte/lithos/releases) page and place
+it on your `PATH`.

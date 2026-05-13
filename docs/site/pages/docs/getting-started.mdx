@@ -2,18 +2,18 @@ import { Callout, Tabs, Tab } from 'nextra-theme-docs';
 
 # Getting started
 
-This page takes you from zero to a deployed Roblox experience in about ten
-minutes. By the end you will have:
+This guide installs Lithos, wires credentials, deploys the sample project,
+changes it once, and rolls it back.
+
+By the end you should have:
 
 1. The `lithos` binary installed and on your `PATH`.
 2. A working Roblox Open Cloud API key and a `ROBLOSECURITY` cookie.
 3. A deployed `dev` environment created from the
    [getting-started example](https://github.com/siriuslatte/lithos/tree/main/examples/projects/getting-started).
-4. A working mental model of what just happened.
 
 If you have never used Lithos before, read
-**[What is Lithos?](/docs/intro)** first — it is short, and the rest of this
-guide assumes that vocabulary.
+**[What is Lithos?](/docs/intro)** first.
 
 ## Prerequisites
 
@@ -26,10 +26,8 @@ guide assumes that vocabulary.
 
 ## 1. Install Lithos
 
-The recommended path is [Foreman](https://github.com/Roblox/foreman) — a
-Roblox toolchain manager that pins tool versions per-project. The
-**[Installation page](/docs/installation)** walks through Foreman setup
-in detail; the short version:
+Use [Foreman](https://github.com/Roblox/foreman) if you can. It pins the
+version per repo and works well in CI.
 
 <Tabs items={["Windows", "macOS / Linux"]}>
   <Tab>
@@ -54,7 +52,7 @@ in detail; the short version:
   </Tab>
 </Tabs>
 
-Now clone the example repo and let Foreman install Lithos:
+Clone the example repo and let Foreman install Lithos:
 
 ```bash
 git clone https://github.com/siriuslatte/lithos
@@ -63,7 +61,7 @@ foreman install
 lithos --version
 ```
 
-The version you get is whatever `examples/foreman.toml` pins.
+The version comes from `examples/foreman.toml`.
 
 <Callout type="info">
   If you would rather grab a prebuilt binary directly, see the
@@ -72,20 +70,20 @@ The version you get is whatever `examples/foreman.toml` pins.
 
 ## 2. Authenticate
 
-The example deploys to a real Roblox account, so Lithos needs two things:
+You need:
 
 - A `ROBLOSECURITY` cookie (used for the legacy site APIs).
 - A `LITHOS_OPEN_CLOUD_API_KEY` (used for everything Open Cloud supports;
   `ROBLOX_OPEN_CLOUD_API_KEY` is also accepted).
 
-The **[Authentication page](/docs/authentication)** has the full story.
-The shortest version:
+See **[Authentication](/docs/authentication)** for the full details. For the
+sample project:
 
 1. Get an Open Cloud API key from the [Creator Hub](https://create.roblox.com/dashboard/credentials).
    Grant it `universe-places:write`, `asset:read`, and `asset:write` for
    the experiences you'll manage.
-2. If you are signed in to Roblox Studio on this machine, Lithos will pick
-   up your `ROBLOSECURITY` automatically. If not, set it explicitly.
+2. If Roblox Studio is signed in on this machine, Lithos can usually read
+  `ROBLOSECURITY` automatically. If not, set it explicitly.
 3. Put both in a `.env` file at the project root (next to `examples/`),
   and add `.env` to `.gitignore`.
 
@@ -104,10 +102,8 @@ From `examples/`:
 $ lithos deploy projects/getting-started --environment dev
 ```
 
-Lithos prints several sections: **Loading project**,
-**Running preflight checks**, **Checkpointing deployment state**,
-**Deploying resources**, and **Saving state**, followed by a summary of where
-the new experience lives on Roblox.
+A deploy shows what Lithos loaded, the plan it intends to apply, and the
+resulting Roblox URLs.
 
 ```text filename="lithos deploy"
 Loading project:
@@ -120,12 +116,10 @@ Loading project:
   ╰─ Succeeded
 ```
 
-That block is your audit trail: which config Lithos loaded, which
-environment it selected, where it looked for previous state, what it
-found.
+That block tells you which config, environment, and prior state file Lithos
+used.
 
-The next block is the diff Lithos plans to apply. On a fresh deploy
-everything is a create:
+On a first deploy, the plan is all creates:
 
 ```text filename="lithos deploy"
 Deploying resources:
@@ -149,13 +143,9 @@ Deploying resources:
   ╰─ Succeeded with 6 create(s), 0 update(s), 0 delete(s), 0 noop(s), 0 skip(s)
 ```
 
-The summary line is the part you want to scan in CI logs:
-`6 create(s)`, `0 delete(s)` means six resources were created and nothing
-was destroyed.
-
-If preflight finds a blocking issue first — a missing Open Cloud key, wrong
-universe scope, or an unsupported target-access setting — Lithos stops before
-mutating anything and prints the likely cause plus next steps.
+That summary line is usually the fastest thing to scan, especially in CI. If
+preflight finds a missing key, wrong universe scope, or another known
+blocker, Lithos stops before apply.
 
 Finally:
 
@@ -171,7 +161,7 @@ Target results:
   ╰──○
 ```
 
-Open the link to launch your new experience.
+Open the link to launch the experience.
 
 ## 4. Make a change and re-deploy
 
@@ -195,19 +185,14 @@ Run the deploy again:
 $ lithos deploy projects/getting-started --environment dev
 ```
 
-This time, instead of six creates, you get **one update**, on exactly the
-field you changed. Everything else is a noop:
+This time you should get **one update** and the rest noops:
 
 ```text
 Succeeded with 0 create(s), 1 update(s), 0 delete(s), 5 noop(s), 0 skip(s)
 ```
 
-That is the entire pitch for infrastructure-as-code in one CLI run: you
-edited one line of YAML, and Lithos did the minimum amount of work
-required to make Roblox match it.
-
-Lithos also saved a rollback checkpoint before applying those changes. If the
-next deploy ever goes bad, you do not need to reconstruct old YAML first.
+That is the core workflow: change config, rerun deploy, apply only the
+minimum diff. Lithos also saved a checkpoint before the update.
 
 ## 5. Undo a bad deploy
 
@@ -215,10 +200,8 @@ next deploy ever goes bad, you do not need to reconstruct old YAML first.
 $ lithos undo projects/getting-started --environment dev
 ```
 
-`undo` imports the live experience, loads the last checkpoint Lithos recorded
-for that environment, previews the diff back to that checkpoint, and then
-applies it. This is best-effort rather than transactional, but it is much
-faster than manually rebuilding state after a bad push.
+`undo` imports live state, compares it to the last checkpoint, shows the
+rollback plan, and applies it.
 
 ## 6. (Optional) clean up
 
@@ -228,8 +211,8 @@ If you do not want the example experience hanging around your account:
 $ lithos destroy projects/getting-started --environment dev
 ```
 
-Roblox does not allow hard-deletes for most asset types, so "destroy"
-means archived and removed from Lithos state.
+Roblox does not allow hard-deletes for most asset types, so `destroy` means
+archive the assets and remove them from Lithos state.
 
 ## What to read next
 

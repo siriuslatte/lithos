@@ -2,20 +2,15 @@
 
 # Continuous deployment
 
-The endgame for any infrastructure-as-code tool is "PR merges, deploy
-runs, done." This page sketches a minimal CI setup for Lithos using
-GitHub Actions. The same pattern applies to GitLab CI, Buildkite,
-CircleCI, Jenkins, etc.
+For CI, keep state remote, gate environments by branch, and let the
+pipeline run `lithos deploy`.
 
-Two things make this setup robust:
+Two things matter most:
 
-1. **Remote state.** With state in S3 or R2, every CI run sees the same
-  previous-state, deployment checkpoints, and rollback history regardless of
-  which runner picked it up. Without remote state, two runners can race and
-  produce divergent state files.
-2. **Branch-gated environments.** A `prod` environment that only deploys
-   from `main` cannot be deployed by a pull request, no matter how the
-   workflow file is written.
+1. **Remote state.** Every runner sees the same current graph and rollback
+  history.
+2. **Branch-gated environments.** `prod` only deploys from the branch you
+  allow.
 
 ## Prerequisites
 
@@ -94,33 +89,23 @@ jobs:
         run: lithos deploy --environment ${{ steps.env.outputs.label }} --plain-preview
 ```
 
-A few details worth understanding:
+Notes:
 
-- **`--plain-preview`** drops ANSI color codes from the plan preview so
-  GitHub's log viewer renders them legibly. Lithos auto-approves when
-  stdout is not a TTY, so no `--yes` flag is needed.
-- **Preflight diagnostics run before apply** even in CI. Missing Open Cloud
-  scopes, wrong universe access, and other known deploy blockers fail the job
-  before any mutation is attempted.
-- **The branch → environment mapping in the script** is a belt-and-suspenders
-  measure on top of the `branches:` constraint in `lithos.yml`. Either
-  alone would prevent a `develop` push from touching `prod`, but both is
-  more obvious to a future reader.
-- **Foreman pins the Lithos version** via `foreman.toml`. This is important:
-  CI should not silently pick up a new Lithos release the day it's
-  published.
+- `--plain-preview` removes ANSI escape sequences for log viewers.
+  Non-TTY runs auto-approve after printing the plan.
+- Preflight still runs and fails early on missing keys, wrong universe
+  scope, and similar issues.
+- Keep the branch-to-environment mapping in the workflow and the
+  `branches:` guard in `lithos.yml`.
+- Foreman pins the Lithos version used by CI.
 
 If a deploy finishes in a bad state, run `lithos undo --environment <label>
---plain-preview` against the same remote state backend. Because the state file
-contains recent checkpoints, rollback can be initiated from a runner or an
-operator workstation without reconstructing an older YAML revision first.
+--plain-preview` against the same remote state backend.
 
 ## Pull-request previews
 
-A common companion workflow: on every PR, run `lithos diff --live` and
-post the output as a comment. That way reviewers see "this PR will create
-2 places, update 1 game pass, delete 0 resources" without anything having
-to be applied.
+For pull requests, run `lithos diff --live` and post or archive the result.
+It shows planned changes and surfaces drift without applying.
 
 ```yaml filename=".github/workflows/diff.yml"
 name: Diff
@@ -147,5 +132,5 @@ jobs:
         run: lithos diff --environment dev --live --plain-preview
 ```
 
-`--live` also surfaces drift introduced by hand-edits to the Creator Hub,
-which is exactly the moment you want to know about it.
+`--live` is useful here because it catches dashboard edits before they
+surprise the next deploy.

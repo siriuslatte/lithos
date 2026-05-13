@@ -21,25 +21,29 @@ export async function getStaticProps() {
 
 # Configuration
 
+Lithos configs can be YAML or JSON. This page covers file discovery, path
+resolution, `outputs` defaults, and schema tooling.
+
 ## Config file resolution
 
-All Lithos commands accept a `PROJECT` argument which tells Lithos where to look for your config file.
-Lithos uses the following rules to find your config file:
+All Lithos commands accept a `PROJECT` argument. Lithos resolves it like
+this:
 
-1. If the `PROJECT` argument was _not provided_, Lithos treats the current directory as the project directory.
-2. If the `PROJECT` argument was _a directory_, Lithos checks that directory for `lithos.yml`, then `lithos.yaml`, then `lithos.json`, then legacy `mantle.yml`, then `mantle.yaml`.
-3. If the `PROJECT` argument was _a file_, Lithos uses it directly. Explicit config paths can point to either YAML or JSON files.
+1. If `PROJECT` is omitted, Lithos treats the current directory as the
+  project directory.
+2. If `PROJECT` is a directory, Lithos checks that directory for
+  `lithos.yml`, then `lithos.yaml`, then `lithos.json`, then legacy
+  `mantle.yml`, then `mantle.yaml`.
+3. If `PROJECT` is a file, Lithos uses it directly. Explicit config paths
+  can point to YAML or JSON.
 
-If multiple discovered config files are present, Lithos uses the same order: `lithos.yml`, then `lithos.yaml`, then `lithos.json`, then legacy `mantle.yml`, then `mantle.yaml`.
-If no config file is found, Lithos exits with an error that lists those search paths in order.
-
-Lithos prefers the Lithos-named files when both Lithos and Mantle variants are present, which lets you keep a
-legacy file around during migration while silencing warnings once `lithos.yml`, `lithos.yaml`, or `lithos.json` exists.
+If more than one discovered config exists, Lithos uses that same order.
+`lithos.*` wins over legacy Mantle names.
 
 ## File path resolution
 
-Many Lithos config properties require file paths or globs. All file paths should be written relative to the
-config file's directory.
+Paths and globs are relative to the config file directory, not the shell
+working directory.
 
 For example, with the directory structure:
 
@@ -70,15 +74,12 @@ target:
         file: game.rbxl
 ```
 
-Lithos will correctly find the referenced files no matter where you execute Lithos from.
-
-The same project-root resolution also applies to `.env` files: Lithos loads the `.env` next to the resolved
-config file in addition to any `.env` in the current working directory.
+The same rule applies to `.env`: Lithos loads the file next to the resolved
+config, plus any `.env` in the current working directory.
 
 ## Outputs command defaults
 
-`lithos outputs` can be configured from the project file instead of requiring
-the full output target on every command line.
+`lithos outputs` can read defaults from the project file.
 
 Add a top-level `outputs` block:
 
@@ -90,8 +91,7 @@ outputs:
   robloxTs: true
 ```
 
-Or, for easier migration from tools like Asphalt, use the alias `codegen`
-plus snake_case field names:
+Or use the alias `codegen` with snake_case names:
 
 ```yaml filename="project/lithos.yml"
 codegen:
@@ -113,26 +113,27 @@ Rules to know:
 - Use either `path` or `writeDir` + `outputName`, not both.
 - If `outputName` has no extension, Lithos adds one from `format`.
 - If `robloxTs` / `typescript` is enabled and no `format` is set, Lithos defaults to `.luau`.
-- CLI flags such as `--output`, `--format`, and `--roblox-ts` override config values.
+CLI flags such as `--output`, `--format`, and `--roblox-ts` override config
+values.
 
 ## YAML and JSON syntax
 
-Lithos config files can be written in either YAML or JSON. Directory auto-discovery looks for `lithos.yml`
-`, `lithos.yaml`, and `lithos.json`; the legacy fallback remains `mantle.yml` and `mantle.yaml`.
-Config examples in this guide can be switched between YAML and JSON, and the same schema and field names apply to both.
+Lithos configs can be written in YAML or JSON. Auto-discovery looks for
+`lithos.yml`, `lithos.yaml`, `lithos.json`, then legacy Mantle names. The
+same schema and field names apply to both formats.
 
 JSONC and comments are not supported.
 
-To quickly get started with YAML syntax, see "[Learn YAML in Y Minutes](https://learnxinyminutes.com/docs/yaml/)"
-or read through the examples in this guide and in the [Examples](https://github.com/siriuslatte/lithos/tree/main/examples)
-repo.
+If you need a YAML refresher, see
+[Learn YAML in Y Minutes](https://learnxinyminutes.com/docs/yaml/) or the
+[examples](https://github.com/siriuslatte/lithos/tree/main/examples) repo.
 
 ## Schemas
 
-You can view the JSON schemas for the config files below (only for versions above `0.11.0`). You can also use
-the schema to add autocomplete and validation while editing either YAML or JSON config files. For VS Code,
-install the [YAML](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) extension for YAML
-files and use the built-in JSON language support for JSON files, then add the following to your settings:
+Use the JSON schema for editor validation and autocomplete. In VS Code,
+install the [YAML](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml)
+extension for YAML files, use built-in JSON support for JSON files, and add
+the following to your settings:
 
 <DynamicMarkdown name="schemasSnippet" />
 
