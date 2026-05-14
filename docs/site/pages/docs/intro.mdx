@@ -50,15 +50,6 @@ badges, thumbnails, social links, voice settings, and more.
   overrides, not parallel checklists.
 - **Predictable in CI** — one binary, one state file, one set of secrets.
 
-## What Lithos is not
-
-- **Not a replacement for [Rojo](https://rojo.space/).** Rojo turns Lua
-  source into a `.rbxlx`. Lithos uploads that `.rbxlx` and configures
-  everything around it. They are complementary.
-- **Not a runtime.** Lithos runs on your machine or in CI. It does not
-  run inside Roblox.
-- **Not an SDK.** There is no Lithos library you call from game code.
-
 ## The shortest possible example
 
 ```yaml filename="lithos.yml"
@@ -73,8 +64,8 @@ target:
           name: My Experience
 ```
 
-```text
-$ lithos deploy
+```bash
+lithos deploy
 ```
 
 On first deploy Lithos creates the experience, uploads `game.rbxlx`, and

@@ -1,5 +1,5 @@
 import { Callout } from 'nextra-theme-docs';
-import { PageHero } from '@components/page-hero';
+import { PageHero, NextSteps } from '@components/page-hero';
 
 <PageHero section="Concepts" />
 
@@ -147,9 +147,17 @@ If a place disappears from the dashboard, the next deploy recreates it
 instead of trying to update a missing asset. If the API is flaky, Lithos
 does not destroy state.
 
-## Continue with
+## Next steps
 
-- **[State and reconciliation](/docs/concepts/state)** — where the state
-  file lives and what is in it.
-- **[Environments](/docs/concepts/environments)** — how the same graph
-  gets parameterised per environment.
+<NextSteps items={[
+  {
+    href: '/docs/concepts/state',
+    title: 'State and reconciliation',
+    description: 'Where the state file lives and what is in it.',
+  },
+  {
+    href: '/docs/concepts/environments',
+    title: 'Environments',
+    description: 'How the same graph gets parameterised per environment.',
+  },
+]} />

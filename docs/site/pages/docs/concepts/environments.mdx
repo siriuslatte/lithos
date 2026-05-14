@@ -1,5 +1,5 @@
 import { Callout } from 'nextra-theme-docs';
-import { PageHero } from '@components/page-hero';
+import { PageHero, NextSteps } from '@components/page-hero';
 
 <PageHero section="Concepts" />
 
@@ -11,9 +11,9 @@ state and its own Roblox assets, but they share one config file.
 
 You select the environment at the command line:
 
-```text
-$ lithos deploy --environment dev
-$ lithos deploy --environment prod
+```bash
+lithos deploy --environment dev
+lithos deploy --environment prod
 ```
 
 The basic shape looks like this:
@@ -171,9 +171,17 @@ each other.
   with `lithos destroy --environment <name>`.
 </Callout>
 
-## Continue with
+## Next steps
 
-- **[Getting Started](/docs/getting-started)** — try a real two-environment
-  deploy.
-- **[Continuous deployment](/docs/continuous-deployment)** — lock `prod`
-  behind CI on `main`.
+<NextSteps items={[
+  {
+    href: '/docs/getting-started',
+    title: 'Getting started',
+    description: 'Try a real two-environment deploy end-to-end.',
+  },
+  {
+    href: '/docs/continuous-deployment',
+    title: 'Continuous deployment',
+    description: 'Lock prod behind CI on main and gate environments by branch.',
+  },
+]} />

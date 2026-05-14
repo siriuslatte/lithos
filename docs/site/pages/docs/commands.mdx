@@ -25,8 +25,8 @@ or `lithos <subcommand> --help`.
 
 ## `deploy`
 
-```text
-$ lithos deploy [PROJECT] --environment <label> [flags]
+```bash
+lithos deploy [PROJECT] --environment <label> [flags]
 ```
 
 `deploy` is the normal workflow: load config and state, reconcile them
@@ -81,8 +81,8 @@ so `lithos undo` has a baseline.
 
 ## `diff`
 
-```text
-$ lithos diff [PROJECT] --environment <label> [--live]
+```bash
+lithos diff [PROJECT] --environment <label> [--live]
 ```
 
 `diff` prints the plan without applying it. By default it is offline and
@@ -90,8 +90,8 @@ compares config to persisted state.
 
 Use `--live` to run the same reconciliation pass as `deploy` first:
 
-```text
-$ lithos diff --environment dev --live
+```bash
+lithos diff --environment dev --live
 ```
 
 Use plain `diff` for config-only review. Use `--live` when you suspect
@@ -99,8 +99,8 @@ drift.
 
 ## `undo`
 
-```text
-$ lithos undo [PROJECT] --environment <label> [flags]
+```bash
+lithos undo [PROJECT] --environment <label> [flags]
 ```
 
 `undo` rolls an environment back toward its most recent checkpoint. It does
@@ -122,8 +122,8 @@ Use the same preview flags as `deploy`: `--yes`, `--no-preview`, and
 
 ## `outputs`
 
-```text
-$ lithos outputs [PROJECT] --environment <label> [--output <file>] [--format <format>] [--roblox-ts]
+```bash
+lithos outputs [PROJECT] --environment <label> [--output <file>] [--format <format>] [--roblox-ts]
 ```
 
 `outputs` prints the last deploy's outputs. Stdout defaults to JSON.
@@ -162,8 +162,8 @@ Rules to know:
 
 With either config, this is enough:
 
-```text
-$ lithos outputs --environment dev
+```bash
+lithos outputs --environment dev
 ```
 
 After deploying the [getting-started example](https://github.com/siriuslatte/lithos/tree/main/examples/projects/getting-started),
@@ -188,8 +188,8 @@ default JSON output looks like:
 
 To require outputs from game code, write a Luau module:
 
-```text
-$ lithos outputs --environment dev --output src/shared/generated/lithosOutputs.luau
+```bash
+lithos outputs --environment dev --output src/shared/generated/lithosOutputs.luau
 ```
 
 ```luau
@@ -203,8 +203,8 @@ local placeVersion = outputs.placeFile_start.placeFile.version
 For `roblox-ts`, add `--roblox-ts` so Lithos also writes
 `lithosOutputs.d.ts` beside it:
 
-```text
-$ lithos outputs --environment dev --output src/shared/generated/lithosOutputs.luau --roblox-ts
+```bash
+lithos outputs --environment dev --output src/shared/generated/lithosOutputs.luau --roblox-ts
 ```
 
 ```ts
@@ -216,8 +216,8 @@ const placeVersion = outputs.placeFile_start.placeFile.version;
 
 ## `destroy`
 
-```text
-$ lithos destroy [PROJECT] --environment <label> [--yes]
+```bash
+lithos destroy [PROJECT] --environment <label> [--yes]
 ```
 
 `destroy` applies a full delete plan for the environment. It uses the same
@@ -230,8 +230,8 @@ preview, confirmation, and dependency ordering as `deploy`.
 
 ## `import`
 
-```text
-$ lithos import [PROJECT] --environment <label> --target-id <experience-id>
+```bash
+lithos import [PROJECT] --environment <label> --target-id <experience-id>
 ```
 
 `import` adopts an existing Roblox experience into a Lithos project. Use it

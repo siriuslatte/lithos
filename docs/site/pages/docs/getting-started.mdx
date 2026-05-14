@@ -98,8 +98,8 @@ ROBLOSECURITY="…"
 
 From `examples/`:
 
-```text
-$ lithos deploy projects/getting-started --environment dev
+```bash
+lithos deploy projects/getting-started --environment dev
 ```
 
 A deploy shows which config and state file Lithos loaded, the plan it
@@ -159,13 +159,13 @@ target:
 
 Run deploy again:
 
-```text
-$ lithos deploy projects/getting-started --environment dev
+```bash
+lithos deploy projects/getting-started --environment dev
 ```
 
 You should get **one update** and the rest noops:
 
-```text
+```text filename="lithos deploy"
 Succeeded with 0 create(s), 1 update(s), 0 delete(s), 5 noop(s), 0 skip(s)
 ```
 
@@ -174,8 +174,8 @@ minimum diff. Lithos also recorded a checkpoint before the update.
 
 ## 5. Undo a bad deploy
 
-```text
-$ lithos undo projects/getting-started --environment dev
+```bash
+lithos undo projects/getting-started --environment dev
 ```
 
 `undo` imports live state, compares it to the last checkpoint, shows the
@@ -183,8 +183,8 @@ rollback plan, and applies it.
 
 ## 6. (Optional) clean up
 
-```text
-$ lithos destroy projects/getting-started --environment dev
+```bash
+lithos destroy projects/getting-started --environment dev
 ```
 
 Roblox does not allow hard-deletes for most asset types, so `destroy`

@@ -1,5 +1,5 @@
 import { Callout } from 'nextra-theme-docs';
-import { PageHero } from '@components/page-hero';
+import { PageHero, NextSteps } from '@components/page-hero';
 
 <PageHero section="Concepts" />
 
@@ -114,8 +114,8 @@ verify cheaply and updates state before planning the diff. See
 
 You can run the reconciliation pass on its own without applying anything:
 
-```text
-$ lithos diff --live
+```bash
+lithos diff --live
 ```
 
 That prints the same diff a `deploy` would, against the reconciled state,
@@ -143,8 +143,17 @@ checkpoints recorded in `deployments`. Better: use
 Only as a last resort, and always with a backup. Wrong asset IDs can make
 Lithos create duplicates, fail auth, or point at the wrong Roblox asset.
 
-## Continue with
+## Next steps
 
-- **[Environments](/docs/concepts/environments)** — how one config file
-  produces multiple isolated state graphs.
-- **[Remote state](/docs/remote-state)** — set up S3 or R2 state.
+<NextSteps items={[
+  {
+    href: '/docs/concepts/environments',
+    title: 'Environments',
+    description: 'How one config file produces multiple isolated state graphs.',
+  },
+  {
+    href: '/docs/remote-state',
+    title: 'Remote state',
+    description: 'Set up S3 or Cloudflare R2 so every machine sees the same state.',
+  },
+]} />
