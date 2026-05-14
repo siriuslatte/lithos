@@ -102,9 +102,13 @@ If the current full PR diff does not touch any of those paths, `docs-preview`
 still finishes successfully so branch protection sees a stable check, and any
 stale preview for that PR is removed.
 
-The preview build itself runs in the pull request workflow. A companion publish
-workflow deploys the uploaded artifact to the `gh-pages` branch and updates the
-PR comment, which keeps preview deployment off the PR runner's token.
+For pull requests opened from branches in this repository, the pull request
+workflow builds, deploys, and comments the preview directly so preview
+infrastructure can bootstrap from the same PR that introduces it.
+
+For pull requests that do not come from this repository, the preview build still
+runs in the pull request workflow, then a companion publish workflow deploys
+the uploaded artifact to the `gh-pages` branch and updates the PR comment.
 
 ## Expected validation commands
 

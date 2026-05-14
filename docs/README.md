@@ -14,10 +14,17 @@ served from GitHub Pages.
 Pull requests targeting `dev` or `main` always get a stable `docs-preview`
 check. That workflow inspects the full PR diff against the base branch.
 
-If the diff touches docs-related paths, the preview build runs and a companion
-publish workflow deploys the result to the `gh-pages` branch. If the diff does
-not touch docs-related paths, the check still succeeds and reports that no
-preview was needed.
+If the diff touches docs-related paths, the preview build runs.
+
+For pull requests opened from branches in this repository, that same workflow
+deploys the preview to `gh-pages` and updates the PR comment directly.
+
+For pull requests that do not come from this repository, a companion publish
+workflow deploys the uploaded artifact to `gh-pages` and updates the PR comment
+after the build succeeds.
+
+If the diff does not touch docs-related paths, the check still succeeds and
+reports that no preview was needed.
 
 Docs-related paths include:
 

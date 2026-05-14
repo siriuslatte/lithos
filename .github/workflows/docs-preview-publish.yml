@@ -37,13 +37,14 @@ jobs:
           echo "action=$(jq -r '.action' "$metadata_file")" >> "$GITHUB_OUTPUT"
           echo "base_ref=$(jq -r '.base_ref' "$metadata_file")" >> "$GITHUB_OUTPUT"
           echo "docs_touched=$(jq -r '.docs_touched' "$metadata_file")" >> "$GITHUB_OUTPUT"
+          echo "same_repo=$(jq -r '.same_repo' "$metadata_file")" >> "$GITHUB_OUTPUT"
           echo "preview_dir=$(jq -r '.preview_dir' "$metadata_file")" >> "$GITHUB_OUTPUT"
           echo "preview_path=$(jq -r '.preview_path' "$metadata_file")" >> "$GITHUB_OUTPUT"
           echo "preview_url=$(jq -r '.preview_url' "$metadata_file")" >> "$GITHUB_OUTPUT"
           echo "pr_number=$(jq -r '.pr_number' "$metadata_file")" >> "$GITHUB_OUTPUT"
 
       - name: Download preview site artifact
-        if: steps.meta.outputs.action != 'closed' && steps.meta.outputs.docs_touched == 'true'
+        if: steps.meta.outputs.same_repo != 'true' && steps.meta.outputs.action != 'closed' && steps.meta.outputs.docs_touched == 'true'
         uses: actions/download-artifact@v4
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -53,7 +54,7 @@ jobs:
           path: docs-preview-site
 
       - name: Deploy preview to gh-pages
-        if: steps.meta.outputs.action != 'closed' && steps.meta.outputs.docs_touched == 'true'
+        if: steps.meta.outputs.same_repo != 'true' && steps.meta.outputs.action != 'closed' && steps.meta.outputs.docs_touched == 'true'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -63,7 +64,7 @@ jobs:
           clean: true
 
       - name: Checkout gh-pages branch for cleanup
-        if: steps.meta.outputs.action == 'closed' || steps.meta.outputs.docs_touched != 'true'
+        if: steps.meta.outputs.same_repo != 'true' && (steps.meta.outputs.action == 'closed' || steps.meta.outputs.docs_touched != 'true')
         id: gh_pages
         continue-on-error: true
         uses: actions/checkout@v4
@@ -73,7 +74,7 @@ jobs:
           fetch-depth: 1
 
       - name: Remove stale preview content
-        if: (steps.meta.outputs.action == 'closed' || steps.meta.outputs.docs_touched != 'true') && steps.gh_pages.outcome == 'success'
+        if: steps.meta.outputs.same_repo != 'true' && (steps.meta.outputs.action == 'closed' || steps.meta.outputs.docs_touched != 'true') && steps.gh_pages.outcome == 'success'
         shell: bash
         run: |
           target="gh-pages/${{ steps.meta.outputs.preview_dir }}"
@@ -99,7 +100,7 @@ jobs:
           git push origin HEAD:gh-pages
 
       - name: Upsert preview comment
-        if: steps.meta.outputs.action != 'closed' && steps.meta.outputs.docs_touched == 'true'
+        if: steps.meta.outputs.same_repo != 'true' && steps.meta.outputs.action != 'closed' && steps.meta.outputs.docs_touched == 'true'
         uses: actions/github-script@v7
         env:
           PREVIEW_URL: ${{ steps.meta.outputs.preview_url }}
@@ -141,7 +142,7 @@ jobs:
             }
 
       - name: Remove preview comment when no preview is active
-        if: steps.meta.outputs.action == 'closed' || steps.meta.outputs.docs_touched != 'true'
+        if: steps.meta.outputs.same_repo != 'true' && (steps.meta.outputs.action == 'closed' || steps.meta.outputs.docs_touched != 'true')
         uses: actions/github-script@v7
         env:
           PR_NUMBER: ${{ steps.meta.outputs.pr_number }}
