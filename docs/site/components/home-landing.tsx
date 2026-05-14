@@ -103,12 +103,14 @@ const DOC_CARDS: DocCard[] = [
 ];
 
 export function HomeLanding() {
+  const bannerSrc = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/img/banner.png`;
+
   return (
     <div className="lithos-home-page">
       <section className="lithos-home-hero">
         <div className="lithos-home-hero-media" aria-hidden="true">
           <Image
-            src="/img/banner.png"
+            src={bannerSrc}
             alt=""
             fill
             priority

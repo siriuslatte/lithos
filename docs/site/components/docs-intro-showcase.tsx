@@ -79,6 +79,8 @@ const NEXT_STEPS = [
 ];
 
 export function DocsIntroShowcase() {
+  const bannerSrc = `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/img/banner.png`;
+
   return (
     <div className="lithos-docs-showcase">
       <section className="lithos-docs-hero-card">
@@ -115,7 +117,7 @@ export function DocsIntroShowcase() {
 
         <div className="lithos-docs-hero-visual" aria-hidden="true">
           <Image
-            src="/img/banner.png"
+            src={bannerSrc}
             alt=""
             fill
             priority

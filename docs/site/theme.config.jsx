@@ -1,6 +1,12 @@
 import { useRouter } from 'next/router';
 import { ExternalLink, Star } from 'react-feather';
 
+const siteBasePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+
+function withBasePath(path) {
+  return `${siteBasePath}${path}`;
+}
+
 function CrystalMark({ size = 22 }) {
   return (
     <svg
@@ -100,9 +106,11 @@ function HiddenEditLink() {
 }
 
 function FooterLink({ href, children, external = false }) {
+  const resolvedHref = !external && href.startsWith('/') ? withBasePath(href) : href;
+
   return (
     <a
-      href={href}
+      href={resolvedHref}
       className="lithos-site-footer-link-row"
       target={external ? '_blank' : undefined}
       rel={external ? 'noreferrer' : undefined}
@@ -124,7 +132,7 @@ export default {
   primarySaturation: 92,
   head: (
     <>
-      <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+      <link rel="icon" type="image/svg+xml" href={withBasePath('/favicon.svg')} />
       <meta name="theme-color" content="#070914" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <meta property="og:title" content="Lithos" />
