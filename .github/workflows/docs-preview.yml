@@ -144,6 +144,40 @@ jobs:
           target-folder: ${{ env.PREVIEW_DIR }}
           clean: true
 
+      - name: Checkout gh-pages branch for root files
+        if: github.event.action != 'closed' && steps.detect.outputs.docs_touched == 'true' && github.event.pull_request.head.repo.full_name == github.repository
+        id: gh_pages_root
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages-root
+          fetch-depth: 1
+
+      - name: Ensure root .nojekyll exists
+        if: github.event.action != 'closed' && steps.detect.outputs.docs_touched == 'true' && github.event.pull_request.head.repo.full_name == github.repository && steps.gh_pages_root.outcome == 'success'
+        shell: bash
+        run: |
+          if [ -f gh-pages-root/.nojekyll ]; then
+            echo "Root .nojekyll already present."
+            exit 0
+          fi
+
+          touch gh-pages-root/.nojekyll
+
+          cd gh-pages-root
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .nojekyll
+
+          if git diff --cached --quiet; then
+            echo "No gh-pages changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: add root .nojekyll for docs previews"
+          git push origin HEAD:gh-pages
+
       - name: Checkout gh-pages branch for direct cleanup
         if: (github.event.action == 'closed' || steps.detect.outputs.docs_touched != 'true') && github.event.pull_request.head.repo.full_name == github.repository
         id: gh_pages
