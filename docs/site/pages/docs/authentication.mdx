@@ -1,48 +1,62 @@
 import { Callout, Tabs, Tab } from 'nextra-theme-docs';
+import { PageHero, NextSteps } from '@components/page-hero';
+
+<PageHero section="Getting Started" />
 
 # Authentication
 
-Lithos usually needs `ROBLOSECURITY` and an Open Cloud key. Add S3
-credentials only if you use remote state. Keep them in environment
-variables or a project `.env` file.
+Lithos needs a Roblox `ROBLOSECURITY` cookie and an Open Cloud API key
+for almost every deploy. Add S3 credentials only if you use
+[remote state](/docs/remote-state).
+
+<Callout type="info">
+  Keep all credentials in environment variables or a project-root `.env`
+  file. Lithos loads `.env` next to your config automatically.
+</Callout>
+
+## Credentials at a glance
 
 | Credential | Used for | Required for |
 | --- | --- | --- |
-| `ROBLOSECURITY` | Legacy Roblox APIs (place uploads, configurations, social links, etc.) | Almost every deploy. |
-| `LITHOS_OPEN_CLOUD_API_KEY` | Roblox Open Cloud (asset uploads, place publish, etc.) | Most deploys; required for asset uploads. `ROBLOX_OPEN_CLOUD_API_KEY` and `MANTLE_OPEN_CLOUD_API_KEY` are also accepted. |
-| `LITHOS_AWS_ACCESS_KEY_ID` / `LITHOS_AWS_SECRET_ACCESS_KEY` / `LITHOS_AWS_INHERIT_IAM_ROLE` | S3 / Cloudflare R2 remote state | Only when using [remote state](/docs/remote-state). |
+| `ROBLOSECURITY` | Legacy Roblox APIs (place uploads, configurations, social links). | Almost every deploy. |
+| `LITHOS_OPEN_CLOUD_API_KEY` | Roblox Open Cloud (asset uploads, place publishing). | Most deploys; required for asset uploads. |
+| `LITHOS_AWS_ACCESS_KEY_ID` / `LITHOS_AWS_SECRET_ACCESS_KEY` | S3 / Cloudflare R2 remote state. | Only when using remote state. |
+| `LITHOS_AWS_INHERIT_IAM_ROLE` | Use the ambient AWS role instead of explicit keys. | When deploying from AWS-managed compute. |
 
-Lithos still honors the legacy `MANTLE_*` names. See
-**[Migrating from Mantle](/docs/guides/migrating-from-mantle)**.
+`ROBLOX_OPEN_CLOUD_API_KEY` and the legacy `MANTLE_*` names are also
+accepted — see [Migrating from Mantle](/docs/guides/migrating-from-mantle).
 
 ## `ROBLOSECURITY`
 
-This is the same browser cookie Roblox uses for [roblox.com](https://www.roblox.com)
+The same browser cookie Roblox uses for [roblox.com](https://www.roblox.com)
 and Roblox Studio. Lithos tries to read it for you first:
 
-- **If Roblox Studio is signed in on this machine**, Lithos can usually read
-  the cookie from the OS keychain.
-- **If not**, set it explicitly:
+- **If Roblox Studio is signed in on this machine**, Lithos can usually
+  read the cookie from the OS keychain.
+- **Otherwise**, set it explicitly:
 
-  <Tabs items={["Bash / zsh", "PowerShell"]}>
-    <Tab>
-      ```bash
-      export ROBLOSECURITY="…"
-      ```
-    </Tab>
-    <Tab>
-      ```ps1
-      $env:ROBLOSECURITY = "…"
-      ```
-    </Tab>
-  </Tabs>
-
-  Or add it to a `.env` file at the project root.
+<Tabs items={["Bash / zsh", "PowerShell", ".env file"]}>
+  <Tab>
+    ```bash
+    export ROBLOSECURITY="…"
+    ```
+  </Tab>
+  <Tab>
+    ```ps1
+    $env:ROBLOSECURITY = "…"
+    ```
+  </Tab>
+  <Tab>
+    ```shell filename=".env"
+    ROBLOSECURITY="…"
+    ```
+  </Tab>
+</Tabs>
 
 <Callout type="warning">
   A `ROBLOSECURITY` cookie is the equivalent of your Roblox password.
-  Never commit it. Add `.env` to `.gitignore`, and rotate the cookie if it
-  leaks.
+  Never commit it. Add `.env` to `.gitignore`, and rotate the cookie if
+  it leaks.
 </Callout>
 
 ### Extracting the cookie manually
@@ -50,39 +64,37 @@ and Roblox Studio. Lithos tries to read it for you first:
 If automatic detection does not find the cookie:
 
 1. Sign in to [roblox.com](https://www.roblox.com) in any modern browser.
-2. Open DevTools → Application → Cookies → `https://www.roblox.com`.
+2. Open DevTools → **Application** → **Cookies** → `https://www.roblox.com`.
 3. Copy the value of the `.ROBLOSECURITY` cookie.
 4. In CI, store it as a secret named `ROBLOSECURITY`.
 
-## `LITHOS_OPEN_CLOUD_API_KEY` (preferred)
+## `LITHOS_OPEN_CLOUD_API_KEY`
 
-Use `LITHOS_OPEN_CLOUD_API_KEY` in new setups. Lithos also accepts
-`ROBLOX_OPEN_CLOUD_API_KEY` and `MANTLE_OPEN_CLOUD_API_KEY`.
+Use this in all new setups. `ROBLOX_OPEN_CLOUD_API_KEY` and the legacy
+`MANTLE_OPEN_CLOUD_API_KEY` still work.
 
-To create a key:
+To create one:
 
-1. Go to the [Creator Hub credentials page](https://create.roblox.com/dashboard/credentials).
+1. Open the [Creator Hub credentials page](https://create.roblox.com/dashboard/credentials).
 2. Create a new API key.
-3. Add the experiences this project deploys to under **Access Permissions**.
-4. Grant the operations Lithos needs:
-   - `universe-places:write` — for publishing places.
-   - `asset:read`, `asset:write` — for uploading image and audio assets.
+3. Under **Access Permissions**, add the experiences this project
+   deploys to.
+4. Grant the scopes Lithos needs:
+   - `universe-places:write` — publishing places.
+   - `asset:read`, `asset:write` — uploading image and audio assets.
 5. Optionally restrict the key by IP.
-6. Set the key.
-
-Example `.env` entry:
 
 ```shell filename=".env"
 LITHOS_OPEN_CLOUD_API_KEY="…"
 ```
 
-Deploy preflight checks this key before apply when it can. Missing or
+Deploy preflight checks this key before apply when it can — missing or
 mis-scoped keys fail early.
 
-## AWS credentials (only for remote state)
+## AWS credentials (remote state only)
 
-If you use **[remote state](/docs/remote-state)**, Lithos needs S3-compatible
-credentials with read and write access to the state object.
+If you use [remote state](/docs/remote-state), Lithos needs
+S3-compatible credentials with read/write access to the state object.
 
 ```shell filename=".env"
 LITHOS_AWS_ACCESS_KEY_ID="…"
@@ -95,26 +107,20 @@ For workloads running with an AWS role, set:
 LITHOS_AWS_INHERIT_IAM_ROLE=1
 ```
 
-and Lithos will use the ambient role instead of explicit keys.
-
-R2-specific setup is documented on
-**[Cloudflare R2 remote state](/docs/remote-state/cloudflare-r2)**.
+and Lithos will use the ambient role instead of explicit keys. R2-specific
+setup lives on [Cloudflare R2 remote state](/docs/remote-state/cloudflare-r2).
 
 ## Using a `.env` file
 
-Lithos automatically loads `.env` from the project root and from the current
-working directory. This is the recommended way to keep secrets locally.
-
-If you invoke Lithos from outside the project, for example
-`lithos outputs path/to/project`, it still loads the `.env` next to the
-resolved project config in addition to any `.env` in the current working
-directory.
+Lithos automatically loads `.env` from both the project root and the
+current working directory. This is the recommended way to keep secrets
+locally.
 
 ```shell filename=".env"
 ROBLOSECURITY="…"
 LITHOS_OPEN_CLOUD_API_KEY="…"
 
-# Only if using remote state
+# Only if using remote state:
 LITHOS_AWS_ACCESS_KEY_ID="…"
 LITHOS_AWS_SECRET_ACCESS_KEY="…"
 ```
@@ -124,4 +130,25 @@ LITHOS_AWS_SECRET_ACCESS_KEY="…"
 .env.*
 ```
 
-Do not commit `.env`. In CI, inject the same values as secrets.
+In CI, inject the same values as repository secrets — see
+[Continuous deployment](/docs/continuous-deployment).
+
+## Next steps
+
+<NextSteps items={[
+  {
+    href: '/docs/getting-started#3-deploy',
+    title: 'Run your first deploy',
+    description: 'Use the credentials you just configured against the sample project.',
+  },
+  {
+    href: '/docs/remote-state',
+    title: 'Set up remote state',
+    description: 'Share state between machines using S3 or Cloudflare R2.',
+  },
+  {
+    href: '/docs/continuous-deployment',
+    title: 'Continuous deployment',
+    description: 'Wire credentials into a CI pipeline gated by branch.',
+  },
+]} />

@@ -1,9 +1,18 @@
 import { Callout } from 'nextra-theme-docs';
+import { PageHero, NextSteps } from '@components/page-hero';
+
+<PageHero section="Reference" />
 
 # CLI reference
 
-Lithos has six subcommands. For flag-level detail, run `lithos --help` or
-`lithos <subcommand> --help`.
+Lithos has six subcommands. For flag-level detail, run `lithos --help`
+or `lithos <subcommand> --help`.
+
+<Callout type="info">
+  All commands accept a positional `PROJECT` argument. If omitted, Lithos
+  searches the current directory — see
+  [Configuration → file resolution](/docs/configuration#configuration-file).
+</Callout>
 
 | Command | Purpose |
 | --- | --- |
@@ -13,11 +22,6 @@ Lithos has six subcommands. For flag-level detail, run `lithos --help` or
 | [`outputs`](#outputs) | Print the outputs of the last deploy as JSON, YAML, or importable modules. |
 | [`destroy`](#destroy) | Remove every resource Lithos manages for an environment. |
 | [`import`](#import) | Adopt an existing experience into a Lithos project. |
-
-All commands accept a positional `PROJECT` argument. If omitted, Lithos
-searches the current directory. If it is a directory, Lithos searches inside
-it. If it is a file, Lithos uses that file directly. See
-[Configuration → Config file resolution](/docs/configuration#config-file-resolution).
 
 ## `deploy`
 
@@ -251,3 +255,23 @@ verify that the diff is empty, and only then import production.
 | `2` | The command was cancelled at the preview / confirmation step. |
 
 In CI, treat any non-zero exit as failure.
+
+## Next steps
+
+<NextSteps items={[
+  {
+    href: '/docs/configuration',
+    title: 'Configuration',
+    description: 'How Lithos discovers config files and resolves paths.',
+  },
+  {
+    href: '/docs/concepts/environments',
+    title: 'Environments',
+    description: 'How the --environment flag selects an isolated state graph.',
+  },
+  {
+    href: '/docs/continuous-deployment',
+    title: 'Continuous deployment',
+    description: 'Wiring deploy and diff into your CI provider.',
+  },
+]} />

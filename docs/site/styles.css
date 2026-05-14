@@ -2136,3 +2136,164 @@ pre {
     align-items: flex-start;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   Docs page hero — pill + lead + intro callout
+   ───────────────────────────────────────────────────────────────────── */
+.lithos-doc-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.85rem;
+  margin: 0 0 1.4rem;
+}
+
+.lithos-doc-hero .lithos-pill {
+  margin: 0;
+}
+
+.nextra-content main > .lithos-doc-hero + h1 {
+  margin-top: 0.1rem;
+}
+
+.lithos-doc-lead {
+  max-width: 48rem;
+  color: #c9c4df !important;
+  font-size: 1.12rem;
+  line-height: 1.85;
+  margin: 0 0 1.4rem;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Inline file-path display (./config.yml style box)
+   ───────────────────────────────────────────────────────────────────── */
+.lithos-file-path {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.95rem;
+  margin: 0.35rem 0 1.2rem;
+  border-radius: 0.7rem;
+  background: rgba(10, 14, 27, 0.78);
+  border: 1px solid var(--lithos-border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92rem;
+  color: #e4d8ff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.lithos-file-path svg {
+  color: var(--lithos-accent);
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   "Next steps" cards grid at end of docs pages
+   ───────────────────────────────────────────────────────────────────── */
+.lithos-next-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.85rem;
+  margin: 1.4rem 0 0;
+  padding: 0 !important;
+  list-style: none !important;
+}
+
+.lithos-next-steps li {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.lithos-next-steps a {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--lithos-border);
+  background: linear-gradient(180deg, rgba(24, 17, 46, 0.6), rgba(13, 16, 31, 0.86));
+  color: var(--lithos-fg) !important;
+  text-decoration: none !important;
+  transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+}
+
+.lithos-next-steps a:hover {
+  border-color: var(--lithos-border-strong);
+  transform: translateY(-1px);
+  background: linear-gradient(180deg, rgba(34, 23, 64, 0.7), rgba(18, 22, 41, 0.92));
+}
+
+.lithos-next-steps .lithos-next-title {
+  font-weight: 600;
+  font-size: 0.98rem;
+  color: #f6eeff;
+}
+
+.lithos-next-steps .lithos-next-desc {
+  font-size: 0.86rem;
+  color: var(--lithos-muted);
+  line-height: 1.5;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Help / Discord-style aside card (used at top-right of page bodies)
+   ───────────────────────────────────────────────────────────────────── */
+.lithos-help-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1rem;
+  margin: 1.4rem 0 1rem;
+  border-radius: 1rem;
+  border: 1px solid var(--lithos-border);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(192, 132, 252, 0.05));
+  color: var(--lithos-fg) !important;
+  text-decoration: none !important;
+  transition: border-color 0.18s ease, transform 0.18s ease;
+}
+
+.lithos-help-card:hover {
+  border-color: var(--lithos-border-strong);
+  transform: translateY(-1px);
+}
+
+.lithos-help-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.65rem;
+  background: rgba(139, 92, 246, 0.18);
+  color: var(--lithos-accent-2);
+  flex-shrink: 0;
+}
+
+.lithos-help-card-title {
+  font-weight: 600;
+  color: #f6eeff;
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+
+.lithos-help-card-sub {
+  font-size: 0.78rem;
+  color: var(--lithos-muted);
+  line-height: 1.35;
+}
+
+/* Environment-variable display rows (key=value box like the reference) */
+.lithos-env-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+  margin: 0.4rem 0;
+  border-radius: 0.7rem;
+  border: 1px solid var(--lithos-border);
+  background: rgba(10, 14, 27, 0.7);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.88rem;
+  color: #e4d8ff;
+}

@@ -1,16 +1,18 @@
 ﻿import { Callout } from 'nextra-theme-docs';
+import { PageHero, NextSteps } from '@components/page-hero';
+
+<PageHero section="Guides" />
 
 # Continuous deployment
 
 For CI, keep state remote, gate environments by branch, and let the
 pipeline run `lithos deploy`.
 
-Two things matter most:
-
-1. **Remote state.** Every runner sees the same current graph and rollback
-  history.
-2. **Branch-gated environments.** `prod` only deploys from the branch you
-  allow.
+<Callout type="info">
+  Two things matter most: **remote state** so every runner sees the same
+  graph, and **branch-based gates** so only `main` (or your release
+  branch) can touch production.
+</Callout>
 
 ## Prerequisites
 
@@ -134,3 +136,23 @@ jobs:
 
 `--live` is useful here because it catches dashboard edits before they
 surprise the next deploy.
+
+## Next steps
+
+<NextSteps items={[
+  {
+    href: '/docs/remote-state',
+    title: 'Remote state',
+    description: 'Store state in S3 or R2 so every runner agrees.',
+  },
+  {
+    href: '/docs/concepts/environments',
+    title: 'Environments',
+    description: 'How branches map to deploy targets.',
+  },
+  {
+    href: '/docs/commands',
+    title: 'CLI reference',
+    description: 'Every flag deploy and diff accept.',
+  },
+]} />

@@ -1,8 +1,10 @@
-﻿import { compileMdx } from 'nextra/compile';
+import { Callout } from 'nextra-theme-docs';
+import { compileMdx } from 'nextra/compile';
 import { getSchemasSnippetContent, getSchemaVersionsList } from 'lib';
 import { FileTree } from 'nextra/components';
 import { DynamicMarkdown } from '@components/dynamic-markdown';
 import { SchemaVersionsList } from '@components/schema-versions-list';
+import { PageHero, FilePath, NextSteps } from '@components/page-hero';
 
 export async function getStaticProps() {
   const schemasSnippet = await getSchemasSnippetContent(compileMdx);
@@ -19,33 +21,43 @@ export async function getStaticProps() {
   };
 }
 
+<PageHero section="Reference" />
+
 # Configuration
 
-Lithos configs can be YAML or JSON. This page covers file discovery, path
-resolution, `outputs` defaults, and schema tooling.
+Lithos configs can be written in YAML or JSON. This page covers file
+discovery, path resolution, `outputs` defaults, and schema tooling.
 
-## Config file resolution
+<Callout type="info">
+  Looking for every supported key? Jump straight to the
+  [Configuration Reference](/docs/configuration/reference).
+</Callout>
 
-All Lithos commands accept a `PROJECT` argument. Lithos resolves it like
-this:
+## Configuration file
 
-1. If `PROJECT` is omitted, Lithos treats the current directory as the
-  project directory.
-2. If `PROJECT` is a directory, Lithos checks that directory for
-  `lithos.yml`, then `lithos.yaml`, then `lithos.json`, then legacy
-  `mantle.yml`, then `mantle.yaml`.
-3. If `PROJECT` is a file, Lithos uses it directly. Explicit config paths
-  can point to YAML or JSON.
+Lithos uses a single config file in your project root.
 
-If more than one discovered config exists, Lithos uses that same order.
-`lithos.*` wins over legacy Mantle names.
+<FilePath>./lithos.yml</FilePath>
+
+All Lithos commands accept a `PROJECT` argument and resolve it in this
+order:
+
+1. If `PROJECT` is omitted, the current directory is the project.
+2. If `PROJECT` is a directory, Lithos searches it for one of:
+   `lithos.yml`, `lithos.yaml`, `lithos.json`, then legacy `mantle.yml`,
+   `mantle.yaml`.
+3. If `PROJECT` is a file, Lithos uses it directly. Explicit paths can
+   point to YAML or JSON.
+
+When more than one discovered file exists, `lithos.*` always wins over
+the legacy Mantle names.
 
 ## File path resolution
 
-Paths and globs are relative to the config file directory, not the shell
-working directory.
+All paths and globs in your config resolve **relative to the config
+file**, not the shell working directory.
 
-For example, with the directory structure:
+For the layout:
 
 <FileTree>
   <FileTree.Folder name="project" defaultOpen>
@@ -59,7 +71,7 @@ For example, with the directory structure:
   </FileTree.Folder>
 </FileTree>
 
-You would use the config:
+You would write:
 
 ```yaml filename="project/lithos.yml" {4,6-7,10}
 target:
@@ -74,14 +86,13 @@ target:
         file: game.rbxl
 ```
 
-The same rule applies to `.env`: Lithos loads the file next to the resolved
-config, plus any `.env` in the current working directory.
+The same rule applies to `.env`: Lithos loads the file next to the
+resolved config, plus any `.env` in the current working directory.
 
-## Outputs command defaults
+## Outputs defaults
 
-`lithos outputs` can read defaults from the project file.
-
-Add a top-level `outputs` block:
+`lithos outputs` can read defaults from the project file with either
+the `outputs` block (camelCase) or the `codegen` alias (snake_case).
 
 ```yaml filename="project/lithos.yml"
 outputs:
@@ -91,50 +102,61 @@ outputs:
   robloxTs: true
 ```
 
-Or use the alias `codegen` with snake_case names:
+### Supported properties
 
-```yaml filename="project/lithos.yml"
-codegen:
-  write_dir: src/shared/generated
-  output_name: lithosOutputs
-  format: luau
-  typescript: true
-```
+| Property | Type | Description |
+| --- | --- | --- |
+| `path` | string | Full output file path. Mutually exclusive with `writeDir` + `outputName`. |
+| `writeDir` | string | Project-relative directory. Used with `outputName`. |
+| `outputName` | string | File name. Extension is added from `format` if missing. |
+| `format` | `json` \| `yaml` \| `yml` \| `lua` \| `luau` | Output format. |
+| `robloxTs` | boolean | Write a `.d.ts` sidecar when the output is Luau. |
 
-Supported properties:
+<Callout type="info">
+  CLI flags such as `--output`, `--format`, and `--roblox-ts` always
+  override the values in `outputs`. When `robloxTs` is `true` and no
+  `format` is set, Lithos defaults to `.luau`.
+</Callout>
 
-- `path`: full output file path.
-- `writeDir` + `outputName`: build the path from a project-relative directory and file name.
-- `format`: `json`, `yaml`, `yml`, `lua`, or `luau`.
-- `robloxTs`: write a `.d.ts` sidecar when the resolved output is Luau.
+## YAML and JSON
 
-Rules to know:
-
-- Use either `path` or `writeDir` + `outputName`, not both.
-- If `outputName` has no extension, Lithos adds one from `format`.
-- If `robloxTs` / `typescript` is enabled and no `format` is set, Lithos defaults to `.luau`.
-CLI flags such as `--output`, `--format`, and `--roblox-ts` override config
-values.
-
-## YAML and JSON syntax
-
-Lithos configs can be written in YAML or JSON. Auto-discovery looks for
-`lithos.yml`, `lithos.yaml`, `lithos.json`, then legacy Mantle names. The
-same schema and field names apply to both formats.
-
-JSONC and comments are not supported.
+Lithos accepts YAML and JSON interchangeably. Auto-discovery prefers
+`lithos.yml` → `lithos.yaml` → `lithos.json`, then the legacy Mantle
+names. JSONC and YAML anchors-in-comments are not supported.
 
 If you need a YAML refresher, see
-[Learn YAML in Y Minutes](https://learnxinyminutes.com/docs/yaml/) or the
-[examples](https://github.com/siriuslatte/lithos/tree/main/examples) repo.
+[Learn YAML in Y Minutes](https://learnxinyminutes.com/docs/yaml/) or
+the [examples repo](https://github.com/siriuslatte/lithos/tree/main/examples).
 
-## Schemas
+## Editor schemas
 
-Use the JSON schema for editor validation and autocomplete. In VS Code,
-install the [YAML](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml)
-extension for YAML files, use built-in JSON support for JSON files, and add
-the following to your settings:
+The published JSON schema powers autocomplete and validation in VS Code,
+JetBrains IDEs, and anywhere else with YAML/JSON schema support.
+
+In VS Code, install the
+[YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml)
+for YAML files and add the snippet below to your settings:
 
 <DynamicMarkdown name="schemasSnippet" />
 
 <SchemaVersionsList />
+
+## Next steps
+
+<NextSteps items={[
+  {
+    href: '/docs/configuration/reference',
+    title: 'Configuration Reference',
+    description: 'Every supported field for experiences, places, passes, and more.',
+  },
+  {
+    href: '/docs/concepts/environments',
+    title: 'Environments',
+    description: 'How one config produces multiple isolated state graphs.',
+  },
+  {
+    href: '/docs/commands',
+    title: 'CLI Reference',
+    description: 'Every subcommand and how config interacts with each flag.',
+  },
+]} />

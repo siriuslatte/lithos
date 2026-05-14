@@ -1,62 +1,63 @@
 import { Callout } from 'nextra-theme-docs';
-import { DocsIntroShowcase } from '../../components/docs-intro-showcase';
+import { DocsIntroShowcase } from '@components/docs-intro-showcase';
+import { PageHero, NextSteps } from '@components/page-hero';
+
+<PageHero section="Getting Started" />
 
 # Introduction
 
-Lithos is Roblox infrastructure-as-code. It keeps config, persisted state,
-and the live Roblox API in sync so deploys stay reviewable and repeatable.
+Lithos is Roblox infrastructure-as-code. It keeps your config, persisted
+state, and the live Roblox API in sync so every deploy is reviewable and
+repeatable.
 
-If you have used Terraform, Pulumi, or AWS CDK before, the model will feel
-familiar. If you have not, this page covers the core model you need.
+<Callout type="info">
+  If you have used Terraform, Pulumi, or AWS CDK before, the model will
+  feel familiar. If you have not, this page covers everything you need.
+</Callout>
 
 <DocsIntroShowcase />
 
 ## The three things Lithos owns
 
-1. **A configuration file** (`lithos.yml` or `lithos.json`) — the source of
-  truth. What you want to exist.
-2. **A state file** (`.lithos-state.yml`, local or remote) — the current
-  graph Lithos believes exists, plus a short deployment history.
-3. **A live API** (Roblox + Open Cloud) — what actually exists *right now*.
+| What | Where it lives | What it represents |
+| --- | --- | --- |
+| **Configuration** | `lithos.yml` or `lithos.json` | What you *want* to exist. The source of truth. |
+| **State** | `.lithos-state.yml` (local or remote) | What Lithos *believes* exists, plus recent deployment history. |
+| **Live API** | Roblox + Open Cloud | What *actually* exists right now. |
 
-Every command is a function of those three inputs. `deploy` reconciles them
-in that order: read config, read state, verify state against the live API,
-plan a diff, apply it, write new state.
+Every command is a function of those three inputs. `deploy` reads config,
+reads state, verifies state against the live API, plans a diff, applies
+it, and writes new state.
 
 <Callout type="info">
   **State is what Lithos thinks exists. The live API is what actually
   exists.** When they disagree, Lithos treats it as drift and reconciles
-  before destructive work.
-</Callout>
-
-<Callout type="info">
-  State also stores recent deployment checkpoints. `lithos undo` rolls back
-  toward those snapshots.
+  before any destructive work. State also stores recent deployment
+  checkpoints — `lithos undo` rolls back toward them.
 </Callout>
 
 ## Why it matters
 
-Lithos moves the metadata that usually lives in Studio and Creator Hub into
-source control: place names, server settings, products, passes, badges,
-thumbnails, social links, voice settings, and more.
+Lithos moves the metadata that usually lives in Studio and Creator Hub
+into source control: place names, server settings, products, passes,
+badges, thumbnails, social links, voice settings, and more.
 
-- Every deploy is **reviewable**: a plan preview shows exactly which fields
-  on which resources will change, before any byte hits Roblox.
-- Every rollback is **explicit**: revert the YAML and redeploy, or use
-  `lithos undo` to drive Roblox back toward the last checkpoint.
-- Every environment is **reproducible**: `dev` and `prod` come from the same
-  config with declarative overrides, not parallel checklists.
-- Every CI pipeline is **predictable**: one binary, one state file, and a
-  small set of secrets.
+- **Reviewable** — a plan preview shows exactly which fields on which
+  resources will change, before any byte hits Roblox.
+- **Reversible** — `lithos undo` rolls back toward the last checkpoint,
+  or revert the YAML and redeploy.
+- **Reproducible** — `dev` and `prod` share one config with declarative
+  overrides, not parallel checklists.
+- **Predictable in CI** — one binary, one state file, one set of secrets.
 
 ## What Lithos is not
 
-- **Not** a replacement for [Rojo](https://rojo.space/). Rojo turns Lua
-  source files into a `.rbxlx`. Lithos uploads that `.rbxlx` to a place and
-  configures everything around it. They are complementary tools.
-- **Not** a runtime. Lithos runs on your machine or in CI. It does not run
-  inside Roblox.
-- **Not** an SDK. There is no Lithos library you call from your game code.
+- **Not a replacement for [Rojo](https://rojo.space/).** Rojo turns Lua
+  source into a `.rbxlx`. Lithos uploads that `.rbxlx` and configures
+  everything around it. They are complementary.
+- **Not a runtime.** Lithos runs on your machine or in CI. It does not
+  run inside Roblox.
+- **Not an SDK.** There is no Lithos library you call from game code.
 
 ## The shortest possible example
 
@@ -76,21 +77,33 @@ target:
 $ lithos deploy
 ```
 
-On first deploy, Lithos creates the experience, uploads `game.rbxlx`, and
-writes the resulting IDs to state. Run the same command again and it noops
-unless the inputs changed.
-
-Change the place name and redeploy, and Lithos updates exactly that field.
+On first deploy Lithos creates the experience, uploads `game.rbxlx`, and
+writes the resulting IDs to state. Run the same command again and it
+noops unless the inputs changed.
 
 ## Where to go next
 
-- **[Getting Started](/docs/getting-started)** — install the tool and
-  deploy a real example end-to-end.
-- **[The resource graph](/docs/concepts/resource-graph)** — how Lithos
-  decides what to create, update, and destroy.
-- **[State and reconciliation](/docs/concepts/state)** — how state files
-  work and what happens when they go stale.
-- **[Environments](/docs/concepts/environments)** — how `dev` and `prod`
-  share a single config.
+<NextSteps items={[
+  {
+    href: '/docs/getting-started',
+    title: 'Getting Started',
+    description: 'Install the tool and deploy a real example end-to-end.',
+  },
+  {
+    href: '/docs/concepts/resource-graph',
+    title: 'The resource graph',
+    description: 'How Lithos decides what to create, update, and destroy.',
+  },
+  {
+    href: '/docs/concepts/state',
+    title: 'State and reconciliation',
+    description: 'How state files work and what happens when they go stale.',
+  },
+  {
+    href: '/docs/concepts/environments',
+    title: 'Environments',
+    description: 'How dev and prod share a single config.',
+  },
+]} />
 
 Coming from Mantle? Read **[Migrating from Mantle](/docs/guides/migrating-from-mantle)**.
