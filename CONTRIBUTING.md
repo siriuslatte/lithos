@@ -86,7 +86,7 @@ Pull requests to `dev` or `main` expose stable checks that can be required indep
 The docs preview URL shape is:
 
 ```text
-https://siriuslatte.github.io/lithos/previews/pr-<number>/
+https://siriuslatte.github.io/lithos/previews/pr-<number>
 ```
 
 `docs-preview` treats these paths as docs-related:

@@ -24,8 +24,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PREVIEW_DIR: previews/pr-${{ github.event.pull_request.number }}
-      PREVIEW_PATH: /lithos/previews/pr-${{ github.event.pull_request.number }}/
-      PREVIEW_URL: https://siriuslatte.github.io/lithos/previews/pr-${{ github.event.pull_request.number }}/
+      PREVIEW_PATH: /lithos/previews/pr-${{ github.event.pull_request.number }}
+      PREVIEW_URL: https://siriuslatte.github.io/lithos/previews/pr-${{ github.event.pull_request.number }}
     steps:
       - name: Checkout pull request head
         if: github.event.action != 'closed'

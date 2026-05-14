@@ -36,7 +36,7 @@ from pushes to `main`.
 The preview URL shape is:
 
 ```text
-https://siriuslatte.github.io/lithos/previews/pr-<number>/
+https://siriuslatte.github.io/lithos/previews/pr-<number>
 ```
 
 You can access a preview in either of these ways:
