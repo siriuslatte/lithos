@@ -71,6 +71,40 @@ If you are adding a new Roblox resource type, the usual order is:
 
 - `pnpm --dir docs/site build` is the narrowest docs-site build check and compiles the shared docs lib first.
 - `pnpm --dir docs build` runs the wider docs workspace.
+- The deployment and preview workflows use the wider docs pipeline because the published site also needs the release-download and schema-build steps, not only the Next.js export.
+
+## Pull request checks
+
+Pull requests to `dev` or `main` expose stable checks that can be required independently:
+
+- `rust-fmt` runs `cargo fmt --all -- --check`.
+- `rust-clippy` runs `cargo clippy --workspace --all-targets -- -D warnings`.
+- `workspace-gate` keeps the broader workspace build, test, schema, and CLI smoke path.
+- `crate-tests / <crate>` keeps the per-crate test fan-out.
+- `docs-preview` always runs on pull requests, inspects the full PR diff against the base branch, and either reports a no-op result or publishes a preview.
+
+The docs preview URL shape is:
+
+```text
+https://siriuslatte.github.io/lithos/previews/pr-<number>/
+```
+
+`docs-preview` treats these paths as docs-related:
+
+- `docs/**`
+- `README.md`, `MIGRATION.md`, `CONTRIBUTING.md`, `SUPPORT.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `MAINTAINERS.md`
+- `.github/workflows/deploy-docs.yml`
+- `.github/workflows/docs-preview.yml`
+- `.github/workflows/docs-preview-publish.yml`
+- `.github/actions/build-docs-site/**`
+
+If the current full PR diff does not touch any of those paths, `docs-preview`
+still finishes successfully so branch protection sees a stable check, and any
+stale preview for that PR is removed.
+
+The preview build itself runs in the pull request workflow. A companion publish
+workflow deploys the uploaded artifact to the `gh-pages` branch and updates the
+PR comment, which keeps preview deployment off the PR runner's token.
 
 ## Expected validation commands
 

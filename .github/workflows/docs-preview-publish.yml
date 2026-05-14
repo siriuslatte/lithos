@@ -1,0 +1,168 @@
+name: docs-preview-publish
+
+on:
+  workflow_run:
+    workflows: [docs-preview]
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: docs-pages-branch
+  cancel-in-progress: false
+
+jobs:
+  publish-preview:
+    if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download preview metadata
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+          name: docs-preview-meta
+          path: docs-preview-meta
+
+      - name: Read preview metadata
+        id: meta
+        shell: bash
+        run: |
+          metadata_file=docs-preview-meta/metadata.json
+
+          echo "action=$(jq -r '.action' "$metadata_file")" >> "$GITHUB_OUTPUT"
+          echo "base_ref=$(jq -r '.base_ref' "$metadata_file")" >> "$GITHUB_OUTPUT"
+          echo "docs_touched=$(jq -r '.docs_touched' "$metadata_file")" >> "$GITHUB_OUTPUT"
+          echo "preview_dir=$(jq -r '.preview_dir' "$metadata_file")" >> "$GITHUB_OUTPUT"
+          echo "preview_path=$(jq -r '.preview_path' "$metadata_file")" >> "$GITHUB_OUTPUT"
+          echo "preview_url=$(jq -r '.preview_url' "$metadata_file")" >> "$GITHUB_OUTPUT"
+          echo "pr_number=$(jq -r '.pr_number' "$metadata_file")" >> "$GITHUB_OUTPUT"
+
+      - name: Download preview site artifact
+        if: steps.meta.outputs.action != 'closed' && steps.meta.outputs.docs_touched == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.workflow_run.id }}
+          name: docs-preview-site
+          path: docs-preview-site
+
+      - name: Deploy preview to gh-pages
+        if: steps.meta.outputs.action != 'closed' && steps.meta.outputs.docs_touched == 'true'
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: gh-pages
+          folder: docs-preview-site
+          target-folder: ${{ steps.meta.outputs.preview_dir }}
+          clean: true
+
+      - name: Checkout gh-pages branch for cleanup
+        if: steps.meta.outputs.action == 'closed' || steps.meta.outputs.docs_touched != 'true'
+        id: gh_pages
+        continue-on-error: true
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages
+          fetch-depth: 1
+
+      - name: Remove stale preview content
+        if: (steps.meta.outputs.action == 'closed' || steps.meta.outputs.docs_touched != 'true') && steps.gh_pages.outcome == 'success'
+        shell: bash
+        run: |
+          target="gh-pages/${{ steps.meta.outputs.preview_dir }}"
+
+          if [ ! -d "$target" ]; then
+            echo "No preview content to remove."
+            exit 0
+          fi
+
+          rm -rf "$target"
+
+          cd gh-pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "No gh-pages changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: remove docs preview for pr-${{ steps.meta.outputs.pr_number }}"
+          git push origin HEAD:gh-pages
+
+      - name: Upsert preview comment
+        if: steps.meta.outputs.action != 'closed' && steps.meta.outputs.docs_touched == 'true'
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.meta.outputs.preview_url }}
+          BASE_REF: ${{ steps.meta.outputs.base_ref }}
+          PR_NUMBER: ${{ steps.meta.outputs.pr_number }}
+        with:
+          script: |
+            const marker = '<!-- docs-preview -->';
+            const issue_number = Number(process.env.PR_NUMBER);
+            const body = [
+              marker,
+              `Docs preview: ${process.env.PREVIEW_URL}`,
+              '',
+              `This preview is rebuilt from the current full PR diff against \`${process.env.BASE_REF}\`.`,
+            ].join('\n');
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              ...context.repo,
+              issue_number,
+              per_page: 100,
+            });
+
+            const existing = comments.find((comment) =>
+              comment.user?.type === 'Bot' && comment.body?.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                ...context.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                ...context.repo,
+                issue_number,
+                body,
+              });
+            }
+
+      - name: Remove preview comment when no preview is active
+        if: steps.meta.outputs.action == 'closed' || steps.meta.outputs.docs_touched != 'true'
+        uses: actions/github-script@v7
+        env:
+          PR_NUMBER: ${{ steps.meta.outputs.pr_number }}
+        with:
+          script: |
+            const marker = '<!-- docs-preview -->';
+            const issue_number = Number(process.env.PR_NUMBER);
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              ...context.repo,
+              issue_number,
+              per_page: 100,
+            });
+
+            const existing = comments.find((comment) =>
+              comment.user?.type === 'Bot' && comment.body?.includes(marker)
+            );
+
+            if (existing) {
+              await github.rest.issues.deleteComment({
+                ...context.repo,
+                comment_id: existing.id,
+              });
+            }
