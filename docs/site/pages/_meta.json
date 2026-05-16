@@ -14,16 +14,21 @@
     "type": "page",
     "href": "/docs"
   },
-  "examples": {
-    "title": "Examples",
+  "reference": {
+    "title": "Reference",
     "type": "page",
-    "href": "https://github.com/siriuslatte/lithos/tree/main/examples",
+    "href": "/docs/configuration"
+  },
+  "changelog": {
+    "title": "Changelog",
+    "type": "page",
+    "href": "https://github.com/siriuslatte/lithos/releases",
     "newWindow": true
   },
-  "community": {
-    "title": "Community",
+  "github": {
+    "title": "GitHub",
     "type": "page",
-    "href": "https://github.com/siriuslatte/lithos#community--repository-process",
+    "href": "https://github.com/siriuslatte/lithos",
     "newWindow": true
   }
 }

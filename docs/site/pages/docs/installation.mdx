@@ -1,24 +1,100 @@
-﻿# Install with Foreman (recommended)
+import { Callout, Tabs, Tab } from 'nextra-theme-docs';
+import { PageHero, NextSteps } from '@components/page-hero';
 
-[Foreman](https://github.com/Roblox/foreman#readme) is a toolchain manager for Roblox tools. You can
-configure Foreman to install Lithos with the following `foreman.toml` config:
+<PageHero section="Getting Started" />
+
+# Installation
+
+Lithos ships as a single self-contained binary. Pick whichever install
+path matches how the rest of your toolchain is managed.
+
+<Callout type="info">
+  Most Roblox projects already use [Foreman](https://github.com/Roblox/foreman)
+  to pin Rojo and friends. Add Lithos to the same `foreman.toml` so every
+  machine, local or CI, runs the same version.
+</Callout>
+
+## Install options
+
+| Option | When to use it |
+| --- | --- |
+| [Foreman](#install-with-foreman-recommended) | You want one pinned version across local and CI. **Recommended.** |
+| [Direct download](#manually-download-from-releases-simplest) | You just want the binary on your `PATH`. |
+| [Cargo](#build-from-source-with-cargo) | You're hacking on Lithos itself. |
+
+## Install with Foreman (recommended)
+
+Add Lithos to `foreman.toml`:
 
 ```toml filename="foreman.toml"
 [tools]
 lithos = { source = "siriuslatte/lithos", version = "<version>" }
 ```
 
-You can check for the latest Lithos version on the
-[releases](https://github.com/siriuslatte/lithos/releases) page.
+Pick the current version from the
+[releases](https://github.com/siriuslatte/lithos/releases) page, then run:
 
-This is the recommended method as it enables consistent version management across your team,
-provides better interop with other tools, and makes using Lithos in CI environments (especially
-GitHub Action) simpler.
+```bash
+foreman install
+lithos --version
+```
 
-If you need help installing Foreman, check out the [Getting Started](/docs/getting-started#foreman)
-guide.
+If you need Foreman itself, see
+[Getting started → Install Lithos](/docs/getting-started#1-install-lithos).
 
-# Manually download from releases (simplest)
+## Manually download from releases (simplest)
 
-You can download prebuilt binaries from the [latest
-release](https://github.com/siriuslatte/lithos/releases).
+Grab the latest build from
+[github.com/siriuslatte/lithos/releases](https://github.com/siriuslatte/lithos/releases)
+and drop the binary somewhere on your `PATH`.
+
+<Tabs items={["Windows", "macOS / Linux"]}>
+  <Tab>
+    ```ps1
+    # Extract lithos.exe into a folder already on your PATH, e.g.
+    # C:\Tools\lithos\, then verify:
+    lithos --version
+    ```
+  </Tab>
+  <Tab>
+    ```bash
+    chmod +x ./lithos
+    sudo mv ./lithos /usr/local/bin/
+    lithos --version
+    ```
+  </Tab>
+</Tabs>
+
+## Build from source with Cargo
+
+You need a recent Rust toolchain. From a clone of the repo:
+
+```bash
+cargo install --path src/lithos
+lithos --version
+```
+
+<Callout type="warning">
+  Source builds skip the cross-platform checks the release pipeline runs.
+  Stick to Foreman or release binaries for anything you ship.
+</Callout>
+
+## Next steps
+
+<NextSteps items={[
+  {
+    href: '/docs/authentication',
+    title: 'Authenticate',
+    description: 'Configure ROBLOSECURITY and your Open Cloud API key.',
+  },
+  {
+    href: '/docs/getting-started#3-deploy',
+    title: 'Run your first deploy',
+    description: 'Deploy the getting-started example end-to-end.',
+  },
+  {
+    href: '/docs/configuration',
+    title: 'Project configuration',
+    description: 'How Lithos discovers lithos.yml and resolves relative paths.',
+  },
+]} />

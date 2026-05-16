@@ -1,0 +1,57 @@
+name: Build docs site
+description: Install the docs workspace and build the exported static site.
+
+inputs:
+  base-path:
+    description: Public base path used by the Next.js export.
+    required: true
+  docs-base-url:
+    description: Absolute public base URL used in generated docs links.
+    required: true
+  github-token:
+    description: Token used by the release download step.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+      with:
+        version: 9
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: pnpm
+        cache-dependency-path: docs/pnpm-lock.yaml
+
+    - name: Install docs workspace
+      shell: bash
+      run: pnpm --dir docs install --frozen-lockfile
+
+    - name: Compile docs workspace
+      shell: bash
+      run: pnpm --dir docs compile
+
+    - name: Download release schemas
+      shell: bash
+      run: pnpm --dir docs download-releases
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+
+    - name: Build published schemas
+      shell: bash
+      run: pnpm --dir docs build-schemas
+      env:
+        NEXT_PUBLIC_DOCS_BASE_URL: ${{ inputs.docs-base-url }}
+
+    - name: Build Next.js site
+      shell: bash
+      run: pnpm --dir docs build
+      env:
+        NEXT_PUBLIC_BASE_PATH: ${{ inputs.base-path }}
+        NEXT_PUBLIC_DOCS_BASE_URL: ${{ inputs.docs-base-url }}
+
+    - name: Disable Jekyll
+      shell: bash
+      run: touch docs/site/out/.nojekyll

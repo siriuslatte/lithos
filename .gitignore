@@ -16,5 +16,6 @@ node_modules
 *.rbxl.lock
 *.rbxlx.lock
 
-# Generated images / state side-effects
-*.png
+# AI related files
+.github/prompts
+.github/agents

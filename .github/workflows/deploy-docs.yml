@@ -6,63 +6,33 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: docs-pages-branch
+  cancel-in-progress: false
 
 jobs:
-  build:
+  deploy:
+    name: deploy-docs
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: docs
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+      - uses: ./.github/actions/build-docs-site
         with:
-          version: 9
+          base-path: /lithos
+          docs-base-url: https://siriuslatte.github.io/lithos
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/setup-node@v4
+      # Branch-based Pages keeps production at /lithos while preserving
+      # preview content under /lithos/previews/pr-<number>/.
+      - name: Deploy production docs to gh-pages
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          node-version: 20
-          cache: pnpm
-          cache-dependency-path: docs/pnpm-lock.yaml
-
-      - name: Configure Pages
-        id: pages
-        uses: actions/configure-pages@v5
-
-      - run: pnpm install --frozen-lockfile
-
-      - run: pnpm compile
-
-      - name: Download release schemas
-        run: pnpm download-releases
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - run: pnpm build-schemas
-
-      - name: Build Next.js site
-        run: pnpm build
-        env:
-          NEXT_PUBLIC_BASE_PATH: ${{ steps.pages.outputs.base_path }}
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs/site/out
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: gh-pages
+          folder: docs/site/out
+          clean: true
+          clean-exclude: |
+            previews
