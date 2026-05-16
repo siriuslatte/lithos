@@ -1,8 +1,10 @@
-﻿import { compileMdx } from 'nextra/compile';
+import { Callout } from 'nextra-theme-docs';
+import { compileMdx } from 'nextra/compile';
 import { getSchemasSnippetContent, getSchemaVersionsList } from 'lib';
 import { FileTree } from 'nextra/components';
 import { DynamicMarkdown } from '@components/dynamic-markdown';
 import { SchemaVersionsList } from '@components/schema-versions-list';
+import { PageHero, FilePath, NextSteps } from '@components/page-hero';
 
 export async function getStaticProps() {
   const schemasSnippet = await getSchemasSnippetContent(compileMdx);
@@ -19,29 +21,43 @@ export async function getStaticProps() {
   };
 }
 
+<PageHero section="Reference" />
+
 # Configuration
 
-## Config file resolution
+Lithos configs can be written in YAML or JSON. This page covers file
+discovery, path resolution, `outputs` defaults, and schema tooling.
 
-All Lithos commands accept a `PROJECT` argument which tells Lithos where to look for your config file.
-Lithos uses the following rules to find your config file:
+<Callout type="info">
+  Looking for every supported key? Jump straight to the
+  [Configuration Reference](/docs/configuration/reference).
+</Callout>
 
-1. If the `PROJECT` argument was _not provided_, Lithos treats the current directory as the project directory.
-2. If the `PROJECT` argument was _a directory_, Lithos checks that directory for `lithos.yml`, then `lithos.yaml`, then `lithos.json`, then legacy `mantle.yml`, then `mantle.yaml`.
-3. If the `PROJECT` argument was _a file_, Lithos uses it directly. Explicit config paths can point to either YAML or JSON files.
+## Configuration file
 
-If multiple discovered config files are present, Lithos uses the same order: `lithos.yml`, then `lithos.yaml`, then `lithos.json`, then legacy `mantle.yml`, then `mantle.yaml`.
-If no config file is found, Lithos exits with an error that lists those search paths in order.
+Lithos uses a single config file in your project root.
 
-Lithos prefers the Lithos-named files when both Lithos and Mantle variants are present, which lets you keep a
-legacy file around during migration while silencing warnings once `lithos.yml`, `lithos.yaml`, or `lithos.json` exists.
+<FilePath>./lithos.yml</FilePath>
+
+All Lithos commands accept a `PROJECT` argument and resolve it in this
+order:
+
+1. If `PROJECT` is omitted, the current directory is the project.
+2. If `PROJECT` is a directory, Lithos searches it for one of:
+   `lithos.yml`, `lithos.yaml`, `lithos.json`, then legacy `mantle.yml`,
+   `mantle.yaml`.
+3. If `PROJECT` is a file, Lithos uses it directly. Explicit paths can
+   point to YAML or JSON.
+
+When more than one discovered file exists, `lithos.*` always wins over
+the legacy Mantle names.
 
 ## File path resolution
 
-Many Lithos config properties require file paths or globs. All file paths should be written relative to the
-config file's directory.
+All paths and globs in your config resolve **relative to the config
+file**, not the shell working directory.
 
-For example, with the directory structure:
+For the layout:
 
 <FileTree>
   <FileTree.Folder name="project" defaultOpen>
@@ -55,7 +71,7 @@ For example, with the directory structure:
   </FileTree.Folder>
 </FileTree>
 
-You would use the config:
+You would write:
 
 ```yaml filename="project/lithos.yml" {4,6-7,10}
 target:
@@ -70,17 +86,13 @@ target:
         file: game.rbxl
 ```
 
-Lithos will correctly find the referenced files no matter where you execute Lithos from.
+The same rule applies to `.env`: Lithos loads the file next to the
+resolved config, plus any `.env` in the current working directory.
 
-The same project-root resolution also applies to `.env` files: Lithos loads the `.env` next to the resolved
-config file in addition to any `.env` in the current working directory.
+## Outputs defaults
 
-## Outputs command defaults
-
-`lithos outputs` can be configured from the project file instead of requiring
-the full output target on every command line.
-
-Add a top-level `outputs` block:
+`lithos outputs` can read defaults from the project file with either
+the `outputs` block (camelCase) or the `codegen` alias (snake_case).
 
 ```yaml filename="project/lithos.yml"
 outputs:
@@ -90,50 +102,61 @@ outputs:
   robloxTs: true
 ```
 
-Or, for easier migration from tools like Asphalt, use the alias `codegen`
-plus snake_case field names:
+### Supported properties
 
-```yaml filename="project/lithos.yml"
-codegen:
-  write_dir: src/shared/generated
-  output_name: lithosOutputs
-  format: luau
-  typescript: true
-```
+| Property | Type | Description |
+| --- | --- | --- |
+| `path` | string | Full output file path. Mutually exclusive with `writeDir` + `outputName`. |
+| `writeDir` | string | Project-relative directory. Used with `outputName`. |
+| `outputName` | string | File name. Extension is added from `format` if missing. |
+| `format` | `json` \| `yaml` \| `yml` \| `lua` \| `luau` | Output format. |
+| `robloxTs` | boolean | Write a `.d.ts` sidecar when the output is Luau. |
 
-Supported properties:
+<Callout type="info">
+  CLI flags such as `--output`, `--format`, and `--roblox-ts` always
+  override the values in `outputs`. When `robloxTs` is `true` and no
+  `format` is set, Lithos defaults to `.luau`.
+</Callout>
 
-- `path`: full output file path.
-- `writeDir` + `outputName`: build the path from a project-relative directory and file name.
-- `format`: `json`, `yaml`, `yml`, `lua`, or `luau`.
-- `robloxTs`: write a `.d.ts` sidecar when the resolved output is Luau.
+## YAML and JSON
 
-Rules to know:
+Lithos accepts YAML and JSON interchangeably. Auto-discovery prefers
+`lithos.yml` → `lithos.yaml` → `lithos.json`, then the legacy Mantle
+names. JSONC and YAML anchors-in-comments are not supported.
 
-- Use either `path` or `writeDir` + `outputName`, not both.
-- If `outputName` has no extension, Lithos adds one from `format`.
-- If `robloxTs` / `typescript` is enabled and no `format` is set, Lithos defaults to `.luau`.
-- CLI flags such as `--output`, `--format`, and `--roblox-ts` override config values.
+If you need a YAML refresher, see
+[Learn YAML in Y Minutes](https://learnxinyminutes.com/docs/yaml/) or
+the [examples repo](https://github.com/siriuslatte/lithos/tree/main/examples).
 
-## YAML and JSON syntax
+## Editor schemas
 
-Lithos config files can be written in either YAML or JSON. Directory auto-discovery looks for `lithos.yml`
-`, `lithos.yaml`, and `lithos.json`; the legacy fallback remains `mantle.yml` and `mantle.yaml`.
-Config examples in this guide can be switched between YAML and JSON, and the same schema and field names apply to both.
+The published JSON schema powers autocomplete and validation in VS Code,
+JetBrains IDEs, and anywhere else with YAML/JSON schema support.
 
-JSONC and comments are not supported.
-
-To quickly get started with YAML syntax, see "[Learn YAML in Y Minutes](https://learnxinyminutes.com/docs/yaml/)"
-or read through the examples in this guide and in the [Examples](https://github.com/siriuslatte/lithos/tree/main/examples)
-repo.
-
-## Schemas
-
-You can view the JSON schemas for the config files below (only for versions above `0.11.0`). You can also use
-the schema to add autocomplete and validation while editing either YAML or JSON config files. For VS Code,
-install the [YAML](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) extension for YAML
-files and use the built-in JSON language support for JSON files, then add the following to your settings:
+In VS Code, install the
+[YAML extension](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml)
+for YAML files and add the snippet below to your settings:
 
 <DynamicMarkdown name="schemasSnippet" />
 
 <SchemaVersionsList />
+
+## Next steps
+
+<NextSteps items={[
+  {
+    href: '/docs/configuration/reference',
+    title: 'Configuration Reference',
+    description: 'Every supported field for experiences, places, passes, and more.',
+  },
+  {
+    href: '/docs/concepts/environments',
+    title: 'Environments',
+    description: 'How one config produces multiple isolated state graphs.',
+  },
+  {
+    href: '/docs/commands',
+    title: 'CLI Reference',
+    description: 'Every subcommand and how config interacts with each flag.',
+  },
+]} />

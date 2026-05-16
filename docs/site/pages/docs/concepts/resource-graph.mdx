@@ -1,4 +1,7 @@
 import { Callout } from 'nextra-theme-docs';
+import { PageHero, NextSteps } from '@components/page-hero';
+
+<PageHero section="Concepts" />
 
 # The resource graph
 
@@ -8,8 +11,7 @@ place, a place's configuration, a developer product, a thumbnail — is one
 node. Edges encode "this resource needs that resource's outputs to exist
 before it can be created."
 
-You will rarely look at the graph directly, but understanding the model
-explains every behaviour you'll see in the CLI output.
+You will rarely inspect the graph directly, but it explains the CLI output.
 
 ## A resource has four parts
 
@@ -21,8 +23,8 @@ explains every behaviour you'll see in the CLI output.
 | **Outputs** | What Roblox returned after creating it (asset IDs, version numbers, …). Outputs feed the inputs of dependent resources. |
 
 A *change* is any difference between a resource's persisted inputs and its
-freshly-computed inputs. Lithos uses this to decide between
-**create**, **update**, **noop**, and **delete**.
+freshly-computed inputs. That yields **create**, **update**, **noop**, or
+**delete**.
 
 ## How a deploy unfolds
 
@@ -80,15 +82,13 @@ freshly-computed inputs. Lithos uses this to decide between
   </svg>
 </figure>
 
-Steps 1–4 are read-only (green). Nothing on Roblox changes until you
-confirm at step 5 (amber). This is what makes destructive mistakes
-recoverable: you always see them coming.
+Steps 1–4 are read-only. Roblox changes start only after confirmation at
+step 5.
 
 <Callout type="info">
-  The diagram is intentionally simplified. Current `deploy` runs a preflight
-  diagnostics pass before confirmation, writes a rollback checkpoint before
-  apply, and saves both the new `current` graph and deployment journal to
-  state afterward.
+  The diagram is simplified. Current `deploy` also runs preflight,
+  writes a rollback checkpoint before apply, and saves the deployment
+  journal afterward.
 </Callout>
 
 ## Operation kinds
@@ -107,41 +107,33 @@ In CI logs you will see lines like:
 Succeeded with 0 create(s), 1 update(s), 0 delete(s), 5 noop(s), 0 skip(s)
 ```
 
-That summary is the *only* number that matters when reviewing a deploy in
-hindsight: a deploy with `0 delete(s)` and `0 skip(s)` was fully successful
-and non-destructive.
+That summary line is usually the fastest CI signal.
 
 ## Why deletes are never silent
 
 If you remove a resource from `lithos.yml`, the next deploy will plan a
-delete. That is by design — the YAML is the source of truth, and the
-absence of a resource means *delete it*.
+delete. The YAML is the source of truth.
 
-What is **not** silent:
+What is not silent:
 
 1. The plan preview marks the destructive operation with an explicit
    warning before any API call.
 2. In an interactive terminal, Lithos prompts for confirmation. Cancel, and
    nothing happens.
-3. In CI, deletes are still applied (otherwise you could never decommission
-   anything from a pipeline), but they are clearly logged.
+3. In CI, deletes are still applied, but they are clearly logged.
 
 <Callout type="warning">
-  Deletes from a Lithos perspective are also archives from a Roblox
-  perspective. Roblox does not generally permit hard-deleting assets, so
-  Lithos archives them and removes them from state. They will not come back
-  on the next deploy unless you re-add them to your config.
+  From Roblox's perspective, most deletes are archives. Lithos removes the
+  resource from state and archives the asset where Roblox allows it.
 </Callout>
 
 ## Drift, and what Lithos does about it
 
-If someone — a teammate, a moderator, your past self — changes a Roblox
-resource through the Creator Hub or Studio, the state file no longer
-matches reality. Lithos calls that *drift*.
+If someone changes a Roblox resource through Creator Hub or Studio, the
+state file no longer matches reality. Lithos calls that *drift*.
 
-During the live reconciliation pass (step 2 above), Lithos asks Roblox to
-confirm that each resource it thinks exists actually exists, classifying
-each one:
+During live reconciliation, Lithos asks Roblox to confirm that each
+resource it thinks exists actually exists:
 
 - **verified** — Roblox confirmed it. Use the persisted state as-is.
 - **missing** — Roblox said it does not exist. Drop it from state so the
@@ -151,13 +143,21 @@ each one:
 - **unknown** — the API call itself failed (network, permission). Trust
   the persisted state to fail safe.
 
-The net effect: if a place gets deleted in the dashboard, the next deploy
-re-creates it instead of producing a broken update against a non-existent
-asset. If the API is flaky, Lithos does not destroy your state.
+If a place disappears from the dashboard, the next deploy recreates it
+instead of trying to update a missing asset. If the API is flaky, Lithos
+does not destroy state.
 
-## Continue with
+## Next steps
 
-- **[State and reconciliation](/docs/concepts/state)** — where the state
-  file lives and what is in it.
-- **[Environments](/docs/concepts/environments)** — how the same graph
-  gets parameterised per environment.
+<NextSteps items={[
+  {
+    href: '/docs/concepts/state',
+    title: 'State and reconciliation',
+    description: 'Where the state file lives and what is in it.',
+  },
+  {
+    href: '/docs/concepts/environments',
+    title: 'Environments',
+    description: 'How the same graph gets parameterised per environment.',
+  },
+]} />
