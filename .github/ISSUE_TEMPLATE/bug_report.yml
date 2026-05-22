@@ -1,0 +1,175 @@
+name: Bug report
+description: Report a Lithos bug or regression with a minimal repro
+title: ""
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a Lithos bug.
+
+        Before you continue:
+        - Use the **Docs or onboarding issue** form if the problem is only about docs, examples, install guidance, or contributor workflow.
+        - Start with [SUPPORT.md](https://github.com/siriuslatte/lithos/blob/main/SUPPORT.md) if you are not sure whether this is a bug or a usage question.
+        - Do **not** report suspected vulnerabilities, leaked credentials, or auth bypasses in public issues. Follow [SECURITY.md](https://github.com/siriuslatte/lithos/blob/main/SECURITY.md) instead.
+
+        Matching the current issue style is helpful when it fits. Example titles: `bug(state): deploy writes a stale checkpoint` or `bug(cli): outputs ignores --environment`.
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Before submitting
+      options:
+        - label: I removed secrets, cookies, API keys, and sensitive state details from the issue body and attachments.
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which Lithos surface is affected?
+      description: Pick the closest area. Choose more than one if the bug crosses boundaries.
+      multiple: true
+      options:
+        - deploy / diff
+        - import / adoption
+        - outputs / codegen
+        - auth / credentials
+        - config / schema / project loading
+        - state backend / remote state
+        - docs / onboarding
+        - other
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Minimal config or project snippet
+      description: Paste the smallest redacted config or project shape that still reproduces the bug.
+      placeholder: |
+        # lithos.yml
+        environments:
+          dev:
+            targetNamePrefix: "demo-"
+            ...
+      render: yaml
+    validations:
+      required: true
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact command invocation
+      description: Include flags, config path, environment selection, and whether this ran locally or in CI.
+      placeholder: |
+        lithos deploy --environment dev --config ./lithos.yml
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Selected environment
+      description: The environment label you targeted. Write `N/A` if the command did not target an environment.
+      placeholder: dev
+    validations:
+      required: true
+
+  - type: dropdown
+    id: auth_mode
+    attributes:
+      label: Auth mode involved
+      options:
+        - ROBLOSECURITY cookie
+        - Open Cloud API key
+        - Both cookie and Open Cloud
+        - Neither / local-only repro
+        - Other or unsure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: state_backend
+    attributes:
+      label: State backend involved
+      description: Choose the backend that matters for this repro.
+      options:
+        - Local-only / no remote state
+        - S3
+        - Cloudflare R2
+        - Other S3-compatible backend
+        - Custom or other backend
+        - Not sure / not applicable
+    validations:
+      required: true
+
+  - type: dropdown
+    id: live_api
+    attributes:
+      label: Does reproduction require live Roblox APIs?
+      options:
+        - No, local validation or local files are enough
+        - Yes, this only reproduces against live Roblox APIs
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: Lithos should preview the resource diff without writing remote state.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Describe the failure mode and include the user-visible result.
+      placeholder: Lithos exits after planning with a stale lock error and never reaches apply.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized logs, error text, or diff output
+      description: Paste the relevant output. Redact cookies, API keys, bucket names, and account IDs if needed.
+      render: shell
+      placeholder: |
+        [error] failed to write deployment checkpoint
+        ...
+    validations:
+      required: true
+
+  - type: input
+    id: lithos_version
+    attributes:
+      label: Lithos version
+      description: Output of `lithos --version` if available.
+      placeholder: lithos 0.3.0
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: Windows 11 / macOS 15 / Ubuntu 24.04
+    validations:
+      required: true
+
+  - type: input
+    id: rust_version
+    attributes:
+      label: Rust version if building from source
+      placeholder: rustc 1.85.0
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Add anything else that matters for reproduction, such as upgrade history, affected resource type, or whether the bug only happens in CI.

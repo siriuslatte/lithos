@@ -1,0 +1,72 @@
+name: Docs or onboarding issue
+description: Report confusing docs, install guidance, examples, or contributor workflow
+title: "docs: "
+labels:
+  - documentation
+  - scope:docs
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for docs-site content, README or migration guidance, examples, install flow, or contributor onboarding issues.
+
+        If the report is actually a product bug, a missing feature, or a security issue, use the matching template instead.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: What part of the docs or onboarding flow is affected?
+      options:
+        - docs site content
+        - README or migration guide
+        - examples or sample projects
+        - install or setup guidance
+        - contributor workflow or validation docs
+        - other
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Page, file, or command involved
+      description: Paste the docs URL, repository path, or command that led you here.
+      placeholder: README.md or https://siriuslatte.github.io/lithos/docs/configuration
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: What is wrong, unclear, or missing?
+      placeholder: The install section does not explain that Rust 1.85 or newer is required when building from source.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expectation
+    attributes:
+      label: What should the docs or onboarding flow say instead?
+      description: If you are not sure about the exact wording, describe the missing outcome or guidance.
+      placeholder: The page should call out the required Rust version near the source install command.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: audience
+    attributes:
+      label: Who is blocked by this?
+      options:
+        - new Lithos user
+        - existing user upgrading or migrating from Mantle
+        - contributor working in this repository
+        - CI or release workflow owner
+        - other
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Include the command you ran, the page you followed, screenshots, or any onboarding step that was confusing.

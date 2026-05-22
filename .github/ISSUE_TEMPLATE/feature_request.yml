@@ -1,0 +1,90 @@
+name: Feature request
+description: Propose a user-facing Lithos improvement
+title: ""
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement to Lithos.
+
+        Before you continue:
+        - Use the **Docs or onboarding issue** form for docs gaps, confusing examples, or contributor workflow feedback.
+        - Start with [SUPPORT.md](https://github.com/siriuslatte/lithos/blob/main/SUPPORT.md) if this is really a usage question.
+        - Do **not** report vulnerabilities or credential issues in public issues. Follow [SECURITY.md](https://github.com/siriuslatte/lithos/blob/main/SECURITY.md) instead.
+
+        Existing feature issues usually use short scoped titles such as `feat(state): ...`, `feat(cli): ...`, or `feat(import): ...`.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which Lithos surface would this affect?
+      description: Pick the closest area. Choose more than one if needed.
+      multiple: true
+      options:
+        - CLI commands or terminal output
+        - config, schema, or project loading
+        - deploy or diff workflow
+        - import or adoption workflow
+        - outputs or code generation
+        - auth or credentials
+        - state backend or remote state
+        - docs or contributor workflow
+        - other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What user problem are you trying to solve?
+      description: Describe the blocked workflow, missing capability, or pain point in concrete terms.
+      placeholder: I cannot safely coordinate two deploys against the same environment because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed UX, CLI, or config surface
+      description: Describe the behavior, command, flag, config field, output shape, or workflow you want Lithos to expose.
+      placeholder: |
+        Add `lithos deploy --lock-timeout <seconds>` and show the active lock holder in preview output.
+    validations:
+      required: true
+
+  - type: textarea
+    id: sketch
+    attributes:
+      label: Smallest workable design or example
+      description: Sketch the desired command, config snippet, preview output, or migration flow if you can.
+      placeholder: |
+        state:
+          locking:
+            timeoutSeconds: 30
+
+        lithos deploy --environment dev --lock-timeout 30
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered or current workarounds
+      placeholder: Today we serialize deploys manually in CI, but that still leaves local deploys racing.
+    validations:
+      required: true
+
+  - type: textarea
+    id: migration
+    attributes:
+      label: Migration or compatibility concerns
+      description: Call out breaking changes, config migration, rollout concerns, or write `None` if you do not see any.
+      placeholder: None, this could be additive behind a new config field.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context or prior art
+      description: Link related issues, similar tools, Roblox APIs, or examples if that helps design review.
