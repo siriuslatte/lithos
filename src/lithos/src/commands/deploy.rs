@@ -10,9 +10,9 @@ use rbx_lithos::{
     roblox_resource_manager::{RobloxInputs, RobloxOutputs, RobloxResource, RobloxResourceManager},
     state::v7::{DeploymentKind, DeploymentStatus},
     state::{
-        build_failure_journal, build_success_journal, get_desired_graph, reconcile_graph,
-        save_state, DeploymentProgressWriter, ReconciliationReport, RobloxLiveStateVerifier,
-        VerificationStatus,
+        acquire_environment_lock, build_failure_journal, build_success_journal, get_desired_graph,
+        reconcile_graph, release_environment_lock, save_state_cas, DeploymentProgressWriter,
+        ReconciliationReport, RobloxLiveStateVerifier, SaveTarget, VerificationStatus,
     },
 };
 
@@ -221,6 +221,7 @@ pub async fn run(
     let Project {
         current_graph,
         mut state,
+        mut state_handle,
         environment_config,
         target_config,
         payment_source,
@@ -346,6 +347,22 @@ pub async fn run(
     }
 
     logger::start_action("Checkpointing last known good state:");
+    let lock_session = match acquire_environment_lock(
+        &project_path,
+        &state_config,
+        &mut state,
+        &mut state_handle,
+        &environment_config.label,
+        "deploy",
+    )
+    .await
+    {
+        Ok(session) => session,
+        Err(e) => {
+            logger::end_action(Paint::red(e));
+            return 1;
+        }
+    };
     let deployment_id = state.begin_deployment(
         &environment_config.label,
         DeploymentKind::Deploy,
@@ -353,22 +370,47 @@ pub async fn run(
         next_graph.get_resource_list(),
         None,
     );
-    match save_state(&project_path, &state_config, &state).await {
-        Ok(_) => logger::end_action("Succeeded"),
-        Err(e) => {
-            logger::end_action(Paint::red(e));
-            return 1;
-        }
-    };
+    {
+        let baseline = state.environment(&environment_config.label).cloned();
+        let target = SaveTarget::new(&environment_config.label, baseline);
+        match save_state_cas(
+            &project_path,
+            &state_config,
+            &mut state,
+            &state_handle,
+            &target,
+        )
+        .await
+        {
+            Ok(new_handle) => {
+                state_handle = new_handle;
+                logger::end_action("Succeeded");
+            }
+            Err(e) => {
+                logger::end_action(Paint::red(e));
+                let _ = release_environment_lock(
+                    &project_path,
+                    &state_config,
+                    &mut state,
+                    &mut state_handle,
+                    &lock_session,
+                )
+                .await;
+                return 1;
+            }
+        };
+    }
 
     let results = {
         let mut progress_writer = DeploymentProgressWriter::new(
             project_path.as_path(),
             &state_config,
             &mut state,
+            &mut state_handle,
             &environment_config.label,
             &deployment_id,
             &current_graph,
+            Some(&lock_session),
         );
         next_graph
             .evaluate_with_progress(
@@ -472,14 +514,51 @@ pub async fn run(
     }
 
     logger::start_action("Saving state:");
-    match save_state(&project_path, &state_config, &state).await {
-        Ok(_) => {}
-        Err(e) => {
-            logger::end_action(Paint::red(e));
-            return 1;
-        }
-    };
+    {
+        let baseline = state.environment(&environment_config.label).cloned();
+        let target = SaveTarget::new(&environment_config.label, baseline);
+        match save_state_cas(
+            &project_path,
+            &state_config,
+            &mut state,
+            &state_handle,
+            &target,
+        )
+        .await
+        {
+            Ok(new_handle) => {
+                state_handle = new_handle;
+            }
+            Err(e) => {
+                logger::end_action(Paint::red(e));
+                let _ = release_environment_lock(
+                    &project_path,
+                    &state_config,
+                    &mut state,
+                    &mut state_handle,
+                    &lock_session,
+                )
+                .await;
+                return 1;
+            }
+        };
+    }
     logger::end_action("Succeeded");
+
+    if let Err(e) = release_environment_lock(
+        &project_path,
+        &state_config,
+        &mut state,
+        &mut state_handle,
+        &lock_session,
+    )
+    .await
+    {
+        logger::log(Paint::yellow(format!(
+            "Warning: failed to release environment lock: {}",
+            e
+        )));
+    }
 
     log_target_results(&target_config, &next_graph);
 

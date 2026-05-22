@@ -26,13 +26,14 @@ pub use history::{
     build_failure_journal, build_success_journal, latest_deployment_diagnostics, rollback_snapshot,
 };
 pub use io::{
-    get_previous_state, get_state, get_state_from_source, load_state_from_source,
-    load_state_with_handle, save_state, save_state_cas, save_state_to_file, save_state_to_remote,
-    ResourceStateVLatest, SaveTarget,
+    get_previous_state, get_previous_state_with_handle, get_state, get_state_from_source,
+    load_state_from_source, load_state_with_handle, save_state, save_state_cas, save_state_to_file,
+    save_state_to_remote, ResourceStateVLatest, SaveTarget,
 };
 pub use lock::{
-    new_owner_id, AcquireOutcome, EnvironmentLock, LockError, DEFAULT_HEARTBEAT_INTERVAL,
-    DEFAULT_LOCK_TTL,
+    acquire_environment_lock, force_break_environment_lock, heartbeat_environment_lock,
+    new_owner_id, release_environment_lock, AcquireOutcome, EnvironmentLock,
+    EnvironmentLockSession, LockError, DEFAULT_HEARTBEAT_INTERVAL, DEFAULT_LOCK_TTL,
 };
 pub use progress::DeploymentProgressWriter;
 pub use reconcile::{

@@ -12,11 +12,16 @@
 //! operator can break the lock with the `lithos lock` CLI command (or any
 //! mutating command in `--force` mode in a future iteration).
 
+use std::path::Path;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::config::StateConfig;
+
+use super::io::{load_state_from_source, save_state_cas, ResourceStateVLatest, SaveTarget};
+use super::store::StateHandle;
 use super::v7::ResourceStateV7;
 
 /// Default heartbeat interval used by long-running operations.
@@ -247,6 +252,134 @@ fn hostname() -> String {
     std::env::var("COMPUTERNAME")
         .or_else(|_| std::env::var("HOSTNAME"))
         .unwrap_or_else(|_| "unknown".to_owned())
+}
+
+/// RAII-style handle returned by [`acquire_environment_lock`]. Holds the
+/// owner id that identifies us to the lock metadata in state.
+#[derive(Clone, Debug)]
+pub struct EnvironmentLockSession {
+    pub environment: String,
+    pub owner_id: String,
+    pub operation: String,
+}
+
+/// Format a human-readable diagnostic for a lock currently held by some
+/// other process. Used both when a fresh acquire is blocked and when our
+/// own lock has been broken by an admin.
+pub fn describe_existing_lock(lock: &EnvironmentLock) -> String {
+    format!(
+        "held by pid {} on {} (operation '{}', acquired_at {}, heartbeat {})",
+        lock.pid, lock.host, lock.operation, lock.acquired_at, lock.heartbeat_at
+    )
+}
+
+/// Acquire a lock on `environment` and persist the change via CAS. Returns
+/// an [`EnvironmentLockSession`] the caller threads through subsequent
+/// state writes.
+///
+/// The caller passes a mutable reference to the freshly loaded state plus
+/// the [`StateHandle`] it came with; both are updated on success so that
+/// the next CAS write can resume from the post-lock revision.
+///
+/// On contention this function does not block: if a non-stale lock is
+/// already in place we return an error describing the holder. Stale locks
+/// are reclaimed automatically.
+pub async fn acquire_environment_lock(
+    project_path: &Path,
+    state_config: &StateConfig,
+    state: &mut ResourceStateVLatest,
+    handle: &mut StateHandle,
+    environment: &str,
+    operation: &str,
+) -> Result<EnvironmentLockSession, String> {
+    let owner_id = new_owner_id();
+    let baseline = state.environment(environment).cloned();
+
+    match state.try_acquire_environment_lock(environment, owner_id.clone(), operation.to_owned()) {
+        AcquireOutcome::Acquired(_) => {}
+        AcquireOutcome::Held { existing, is_stale } => {
+            return Err(format!(
+                "Cannot acquire lock for environment '{}': {}{}. Use `lithos lock break --environment {}` to release a stale lock.",
+                environment,
+                describe_existing_lock(&existing),
+                if is_stale { " (stale)" } else { "" },
+                environment,
+            ));
+        }
+    }
+
+    let target = SaveTarget::new(environment, baseline);
+    let new_handle = save_state_cas(project_path, state_config, state, handle, &target)
+        .await
+        .map_err(|e| format!("Failed to persist lock acquisition: {}", e))?;
+    *handle = new_handle;
+
+    Ok(EnvironmentLockSession {
+        environment: environment.to_owned(),
+        owner_id,
+        operation: operation.to_owned(),
+    })
+}
+
+/// Refresh the heartbeat for an already-held lock and persist via CAS.
+/// Returns an error if our lock has been stolen or broken; callers should
+/// treat that as a hard abort.
+pub async fn heartbeat_environment_lock(
+    project_path: &Path,
+    state_config: &StateConfig,
+    state: &mut ResourceStateVLatest,
+    handle: &mut StateHandle,
+    session: &EnvironmentLockSession,
+) -> Result<(), String> {
+    let baseline = state.environment(&session.environment).cloned();
+    state
+        .heartbeat_environment_lock(&session.environment, &session.owner_id)
+        .map_err(|e| e.to_string())?;
+    let target = SaveTarget::new(&session.environment, baseline);
+    let new_handle = save_state_cas(project_path, state_config, state, handle, &target)
+        .await
+        .map_err(|e| format!("Failed to heartbeat lock: {}", e))?;
+    *handle = new_handle;
+    Ok(())
+}
+
+/// Release an environment lock and persist via CAS. Best-effort: if the
+/// caller no longer owns the lock we surface a warning but do not retry.
+pub async fn release_environment_lock(
+    project_path: &Path,
+    state_config: &StateConfig,
+    state: &mut ResourceStateVLatest,
+    handle: &mut StateHandle,
+    session: &EnvironmentLockSession,
+) -> Result<(), String> {
+    let baseline = state.environment(&session.environment).cloned();
+    state
+        .release_environment_lock(&session.environment, &session.owner_id)
+        .map_err(|e| e.to_string())?;
+    let target = SaveTarget::new(&session.environment, baseline);
+    let new_handle = save_state_cas(project_path, state_config, state, handle, &target)
+        .await
+        .map_err(|e| format!("Failed to release lock: {}", e))?;
+    *handle = new_handle;
+    Ok(())
+}
+
+/// Forcibly break a lock for an environment, regardless of ownership.
+/// Intended for the `lithos lock break` CLI subcommand. Returns the lock
+/// that was broken, if any.
+pub async fn force_break_environment_lock(
+    project_path: &Path,
+    state_config: &StateConfig,
+    environment: &str,
+) -> Result<Option<EnvironmentLock>, String> {
+    let (mut state, handle) = load_state_from_source(project_path, state_config).await?;
+    let baseline = state.environment(environment).cloned();
+    let broken = state.force_break_environment_lock(environment);
+    if broken.is_some() {
+        let target = SaveTarget::new(environment, baseline);
+        save_state_cas(project_path, state_config, &mut state, &handle, &target).await?;
+    }
+    Ok(broken)
 }
 
 #[cfg(test)]

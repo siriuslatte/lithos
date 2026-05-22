@@ -7,7 +7,7 @@ use rbx_lithos::{
     project::{load_project, Project},
     resource_graph::{EvaluateResults, ResourceGraph},
     roblox_resource_manager::RobloxResourceManager,
-    state::save_state,
+    state::{acquire_environment_lock, release_environment_lock, save_state_cas, SaveTarget},
 };
 
 pub async fn run(project: Option<&str>, environment: Option<&str>) -> i32 {
@@ -22,6 +22,7 @@ pub async fn run(project: Option<&str>, environment: Option<&str>) -> i32 {
     let Project {
         current_graph,
         mut state,
+        mut state_handle,
         environment_config,
         payment_source,
         state_config,
@@ -38,6 +39,23 @@ pub async fn run(project: Option<&str>, environment: Option<&str>) -> i32 {
         }
     };
     logger::end_action("Succeeded");
+
+    let lock_session = match acquire_environment_lock(
+        &project_path,
+        &state_config,
+        &mut state,
+        &mut state_handle,
+        &environment_config.label,
+        "destroy",
+    )
+    .await
+    {
+        Ok(session) => session,
+        Err(e) => {
+            logger::log(Paint::red(e));
+            return 1;
+        }
+    };
 
     logger::start_action("Destroying resources:");
     let mut resource_manager = match RobloxResourceManager::new(&project_path, payment_source).await
@@ -80,14 +98,51 @@ pub async fn run(project: Option<&str>, environment: Option<&str>) -> i32 {
             .ensure_environment_mut(&environment_config.label)
             .current = next_graph.get_resource_list();
     }
-    match save_state(&project_path, &state_config, &state).await {
-        Ok(_) => {}
-        Err(e) => {
-            logger::end_action(Paint::red(e));
-            return 1;
+    {
+        let baseline = state.environment(&environment_config.label).cloned();
+        let target = SaveTarget::new(&environment_config.label, baseline);
+        match save_state_cas(
+            &project_path,
+            &state_config,
+            &mut state,
+            &state_handle,
+            &target,
+        )
+        .await
+        {
+            Ok(new_handle) => {
+                state_handle = new_handle;
+            }
+            Err(e) => {
+                logger::end_action(Paint::red(e));
+                let _ = release_environment_lock(
+                    &project_path,
+                    &state_config,
+                    &mut state,
+                    &mut state_handle,
+                    &lock_session,
+                )
+                .await;
+                return 1;
+            }
         }
-    };
+    }
     logger::end_action("Succeeded");
+
+    if let Err(e) = release_environment_lock(
+        &project_path,
+        &state_config,
+        &mut state,
+        &mut state_handle,
+        &lock_session,
+    )
+    .await
+    {
+        logger::log(Paint::yellow(format!(
+            "Warning: failed to release environment lock: {}",
+            e
+        )));
+    }
 
     match &results {
         Ok(_) => 0,

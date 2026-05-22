@@ -219,6 +219,30 @@ pub async fn get_previous_state(
     Ok(state)
 }
 
+/// Variant of [`get_previous_state`] that also returns the [`StateHandle`]
+/// captured at load time. Commands use that handle as the CAS expectation
+/// for every subsequent state write.
+pub async fn get_previous_state_with_handle(
+    project_path: &Path,
+    config: &Config,
+    environment_config: &EnvironmentConfig,
+) -> Result<(ResourceStateVLatest, StateHandle), String> {
+    let (mut state, handle) = load_state_with_handle(project_path, config).await?;
+
+    if !state.environments.contains_key(&environment_config.label) {
+        logger::log(format!(
+            "No previous state for environment {}",
+            Paint::cyan(environment_config.label.clone())
+        ));
+        state.environments.insert(
+            environment_config.label.clone(),
+            super::v7::EnvironmentStateV7::default(),
+        );
+    }
+
+    Ok((state, handle))
+}
+
 pub async fn save_state_to_remote(config: &RemoteStateConfig, data: &[u8]) -> Result<(), String> {
     logger::log(format!("Saving to remote object {}", Paint::cyan(config)));
 

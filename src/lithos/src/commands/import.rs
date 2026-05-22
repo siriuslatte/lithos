@@ -7,7 +7,10 @@ use yansi::Paint;
 use rbx_lithos::{
     config::load_project_config,
     project::{load_project, Project},
-    state::{import_graph, save_state},
+    state::{
+        acquire_environment_lock, import_graph, release_environment_lock, save_state_cas,
+        SaveTarget,
+    },
 };
 
 pub async fn run(project: Option<&str>, environment: Option<&str>, target_id: &str) -> i32 {
@@ -22,6 +25,7 @@ pub async fn run(project: Option<&str>, environment: Option<&str>, target_id: &s
     let Project {
         current_graph,
         mut state,
+        mut state_handle,
         environment_config,
         state_config,
         ..
@@ -89,17 +93,70 @@ pub async fn run(project: Option<&str>, environment: Option<&str>, target_id: &s
     logger::end_action("Succeeded");
 
     logger::start_action("Saving state:");
-    state
-        .ensure_environment_mut(&environment_config.label)
-        .current = imported_graph.get_resource_list();
-    match save_state(&project_path, &state_config, &state).await {
-        Ok(_) => {}
+    let lock_session = match acquire_environment_lock(
+        &project_path,
+        &state_config,
+        &mut state,
+        &mut state_handle,
+        &environment_config.label,
+        "import",
+    )
+    .await
+    {
+        Ok(session) => session,
         Err(e) => {
             logger::end_action(Paint::red(e));
             return 1;
         }
     };
+    state
+        .ensure_environment_mut(&environment_config.label)
+        .current = imported_graph.get_resource_list();
+    {
+        let baseline = state.environment(&environment_config.label).cloned();
+        let target = SaveTarget::new(&environment_config.label, baseline);
+        match save_state_cas(
+            &project_path,
+            &state_config,
+            &mut state,
+            &state_handle,
+            &target,
+        )
+        .await
+        {
+            Ok(new_handle) => {
+                state_handle = new_handle;
+            }
+            Err(e) => {
+                logger::end_action(Paint::red(e));
+                let _ = release_environment_lock(
+                    &project_path,
+                    &state_config,
+                    &mut state,
+                    &mut state_handle,
+                    &lock_session,
+                )
+                .await;
+                return 1;
+            }
+        }
+    }
     logger::end_action("Succeeded");
+
+    if let Err(e) = release_environment_lock(
+        &project_path,
+        &state_config,
+        &mut state,
+        &mut state_handle,
+        &lock_session,
+    )
+    .await
+    {
+        logger::log(Paint::yellow(format!(
+            "Warning: failed to release environment lock: {}",
+            e
+        )));
+    }
 
     0
 }
