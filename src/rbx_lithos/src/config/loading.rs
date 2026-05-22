@@ -12,9 +12,15 @@ use dotenv::from_path;
 use log::info;
 use yansi::Paint;
 
-use super::Config;
+use super::{luau, Config};
 
-const PRIMARY_CONFIG_FILENAMES: &[&str] = &["lithos.yml", "lithos.yaml", "lithos.json"];
+const PRIMARY_CONFIG_FILENAMES: &[&str] = &[
+    "lithos.yml",
+    "lithos.yaml",
+    "lithos.json",
+    "lithos.luau",
+    "lithos.lua",
+];
 const LEGACY_CONFIG_FILENAMES: &[&str] = &["mantle.yml", "mantle.yaml"];
 
 fn config_candidates(project_path: &Path) -> Vec<PathBuf> {
@@ -94,6 +100,10 @@ fn parse_project_path(project: Option<&str>) -> Result<(PathBuf, PathBuf), Strin
 }
 
 fn load_config_file(config_file: &Path) -> Result<Config, String> {
+    if luau::is_lua_config_path(config_file) {
+        return luau::load_lua_config(config_file).map(|eval| eval.config);
+    }
+
     let data = fs::read_to_string(config_file).map_err(|e| {
         format!(
             "Unable to read config file: {}\n\t{}",
@@ -155,7 +165,9 @@ mod tests {
         time::{SystemTime, UNIX_EPOCH},
     };
 
-    use super::{load_project_config, LEGACY_CONFIG_FILENAMES, PRIMARY_CONFIG_FILENAMES};
+    use super::{
+        load_project_config, parse_project_path, LEGACY_CONFIG_FILENAMES, PRIMARY_CONFIG_FILENAMES,
+    };
 
     static NEXT_TEMP_DIR_ID: AtomicUsize = AtomicUsize::new(0);
 
@@ -320,6 +332,46 @@ target:
         assert!(error.contains(PRIMARY_CONFIG_FILENAMES[2]));
         assert!(error.contains(LEGACY_CONFIG_FILENAMES[0]));
         assert!(error.contains(LEGACY_CONFIG_FILENAMES[1]));
+    }
+
+    #[test]
+    fn discovery_prefers_yaml_and_json_over_luau() {
+        // Selection should be a pure function of which files exist; verify
+        // precedence without actually evaluating any of them.
+        let project_dir = TempProjectDir::new();
+        project_dir.write("lithos.json", JSON_CONFIG);
+        project_dir.write("lithos.luau", "return {}");
+        project_dir.write("lithos.lua", "return {}");
+
+        let (_, config_path) =
+            parse_project_path(Some(project_dir.path().to_str().unwrap())).unwrap();
+
+        assert_eq!(config_path.file_name().unwrap(), "lithos.json");
+    }
+
+    #[test]
+    fn discovery_prefers_luau_over_lua_and_legacy_mantle() {
+        let project_dir = TempProjectDir::new();
+        project_dir.write("lithos.luau", "return {}");
+        project_dir.write("lithos.lua", "return {}");
+        project_dir.write("mantle.yml", YML_CONFIG);
+
+        let (_, config_path) =
+            parse_project_path(Some(project_dir.path().to_str().unwrap())).unwrap();
+
+        assert_eq!(config_path.file_name().unwrap(), "lithos.luau");
+    }
+
+    #[test]
+    fn missing_config_error_mentions_luau_in_search_path() {
+        let project_dir = TempProjectDir::new();
+
+        let error = load_project_config(Some(project_dir.path().to_str().unwrap()))
+            .err()
+            .unwrap();
+
+        assert!(error.contains("lithos.luau"));
+        assert!(error.contains("lithos.lua"));
     }
 
     #[test]

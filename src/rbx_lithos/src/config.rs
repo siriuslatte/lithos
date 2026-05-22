@@ -1,12 +1,14 @@
 //! Project configuration types.
 //!
 //! This module defines the data shape of the user-facing `lithos.yml` and
-//! `lithos.yaml`, and `lithos.json` files (plus the legacy `mantle.yml` /
-//! `mantle.yaml` aliases). Two focused
-//! submodules handle
-//! adjacent concerns:
+//! `lithos.yaml`, `lithos.json`, `lithos.luau`, and `lithos.lua` files (plus
+//! the legacy `mantle.yml` / `mantle.yaml` aliases). Three focused
+//! submodules handle adjacent concerns:
 //!
-//! - [`loading`] – reads and parses the YAML/JSON file from disk.
+//! - [`loading`] – reads and parses config files from disk, dispatching by
+//!   extension between the static (YAML / JSON) and executable (Luau / Lua)
+//!   formats.
+//! - [`luau`] – evaluates `.luau` and `.lua` configs via the Lune runtime.
 //! - [`mapping`] – pure `From` impls converting these config types into the
 //!   request models used by `rbx_api`.
 
@@ -19,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 mod loading;
+mod luau;
 mod mapping;
 
 pub use loading::load_project_config;
