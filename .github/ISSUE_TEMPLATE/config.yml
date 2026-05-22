@@ -1,8 +1,14 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Support and usage guidance
+  - name: Read the docs first
+    url: https://siriuslatte.github.io/lithos/
+    about: Installation, configuration, deploy, import, and outputs guides live here.
+  - name: Support and issue triage guide
     url: https://github.com/siriuslatte/lithos/blob/main/SUPPORT.md
-    about: Read this before filing usage questions or best-effort support requests.
+    about: Lithos has no separate discussion forum today; this explains when to open a question, bug, or feature issue.
+  - name: Contributing guide
+    url: https://github.com/siriuslatte/lithos/blob/main/CONTRIBUTING.md
+    about: Read this before filing contributor workflow, build, or validation issues.
   - name: Private security reporting
     url: https://github.com/siriuslatte/lithos/blob/main/SECURITY.md
-    about: Do not report vulnerabilities in public issues.
+    about: Do not report vulnerabilities, leaked credentials, or auth bypasses in public issues.
