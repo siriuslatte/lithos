@@ -9,8 +9,10 @@ mod build;
 mod history;
 mod io;
 mod legacy_resources;
+pub mod lock;
 mod progress;
 pub mod reconcile;
+pub mod store;
 pub mod v1;
 pub mod v2;
 pub mod v3;
@@ -24,11 +26,18 @@ pub use history::{
     build_failure_journal, build_success_journal, latest_deployment_diagnostics, rollback_snapshot,
 };
 pub use io::{
-    get_previous_state, get_state, get_state_from_source, save_state, save_state_to_file,
-    save_state_to_remote, ResourceStateVLatest,
+    get_previous_state, get_previous_state_with_handle, get_state, get_state_from_source,
+    load_state_from_source, load_state_with_handle, save_state, save_state_cas, save_state_to_file,
+    save_state_to_remote, ResourceStateVLatest, SaveTarget,
+};
+pub use lock::{
+    acquire_environment_lock, force_break_environment_lock, heartbeat_environment_lock,
+    new_owner_id, release_environment_lock, AcquireOutcome, EnvironmentLock,
+    EnvironmentLockSession, LockError, DEFAULT_HEARTBEAT_INTERVAL, DEFAULT_LOCK_TTL,
 };
 pub use progress::DeploymentProgressWriter;
 pub use reconcile::{
     reconcile_graph, reconcile_graph_with_statuses, verify_graph, LiveStateVerifier,
     ReconciliationCounts, ReconciliationReport, RobloxLiveStateVerifier, VerificationStatus,
 };
+pub use store::{build_store, LoadedState, SaveError, StateHandle, StateStore};

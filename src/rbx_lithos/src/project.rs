@@ -11,7 +11,7 @@ use super::{
     },
     resource_graph::ResourceGraph,
     roblox_resource_manager::{RobloxInputs, RobloxOutputs, RobloxResource},
-    state::{get_previous_state, ResourceStateVLatest},
+    state::{get_previous_state_with_handle, ResourceStateVLatest, StateHandle},
 };
 
 fn run_command(dir: PathBuf, command: &str) -> std::io::Result<std::process::Output> {
@@ -150,6 +150,9 @@ fn get_target_config(
 pub struct Project {
     pub current_graph: ResourceGraph<RobloxResource, RobloxInputs, RobloxOutputs>,
     pub state: ResourceStateVLatest,
+    /// Revision token captured at state load time. Mutating commands
+    /// thread this through every save so concurrent writes are detected.
+    pub state_handle: StateHandle,
     pub environment_config: EnvironmentConfig,
     pub target_config: TargetConfig,
     pub payment_source: CreatorType,
@@ -220,7 +223,8 @@ pub async fn load_project(
     };
 
     // Get previous state
-    let state = get_previous_state(project_path.as_path(), &config, environment_config).await?;
+    let (state, state_handle) =
+        get_previous_state_with_handle(project_path.as_path(), &config, environment_config).await?;
 
     // Get our resource graphs
     let previous_graph = ResourceGraph::new(
@@ -232,6 +236,7 @@ pub async fn load_project(
     Ok(Some(Project {
         current_graph: previous_graph,
         state,
+        state_handle,
         environment_config: environment_config.clone(),
         target_config,
         payment_source,

@@ -7,9 +7,10 @@ use rbx_lithos::{
     resource_graph::{EvaluateResults, Resource, ResourceGraph},
     roblox_resource_manager::{RobloxOutputs, RobloxResource, RobloxResourceManager},
     state::{
-        build_failure_journal, build_success_journal, import_graph, save_state,
+        acquire_environment_lock, build_failure_journal, build_success_journal, import_graph,
+        release_environment_lock, save_state_cas,
         v7::{DeploymentKind, DeploymentStatus},
-        DeploymentProgressWriter,
+        DeploymentProgressWriter, SaveTarget,
     },
 };
 
@@ -105,6 +106,7 @@ pub async fn run(
     let Project {
         current_graph,
         mut state,
+        mut state_handle,
         environment_config,
         target_config,
         payment_source,
@@ -218,6 +220,22 @@ pub async fn run(
     }
 
     logger::start_action("Checkpointing pre-undo state:");
+    let lock_session = match acquire_environment_lock(
+        &project_path,
+        &state_config,
+        &mut state,
+        &mut state_handle,
+        &environment_config.label,
+        "undo",
+    )
+    .await
+    {
+        Ok(session) => session,
+        Err(e) => {
+            logger::end_action(Paint::red(e));
+            return 1;
+        }
+    };
     let deployment_id = state.begin_deployment(
         &environment_config.label,
         DeploymentKind::Undo,
@@ -225,13 +243,36 @@ pub async fn run(
         rollback_graph.get_resource_list(),
         None,
     );
-    match save_state(&project_path, &state_config, &state).await {
-        Ok(_) => logger::end_action("Succeeded"),
-        Err(e) => {
-            logger::end_action(Paint::red(e));
-            return 1;
+    {
+        let baseline = state.environment(&environment_config.label).cloned();
+        let target = SaveTarget::new(&environment_config.label, baseline);
+        match save_state_cas(
+            &project_path,
+            &state_config,
+            &mut state,
+            &state_handle,
+            &target,
+        )
+        .await
+        {
+            Ok(new_handle) => {
+                state_handle = new_handle;
+                logger::end_action("Succeeded");
+            }
+            Err(e) => {
+                logger::end_action(Paint::red(e));
+                let _ = release_environment_lock(
+                    &project_path,
+                    &state_config,
+                    &mut state,
+                    &mut state_handle,
+                    &lock_session,
+                )
+                .await;
+                return 1;
+            }
         }
-    };
+    }
 
     logger::start_action("Undoing resources:");
     let results = {
@@ -239,9 +280,11 @@ pub async fn run(
             project_path.as_path(),
             &state_config,
             &mut state,
+            &mut state_handle,
             &environment_config.label,
             &deployment_id,
             &live_graph,
+            Some(&lock_session),
         );
         rollback_graph
             .evaluate_with_progress(
@@ -326,13 +369,51 @@ pub async fn run(
     );
 
     logger::start_action("Saving state:");
-    match save_state(&project_path, &state_config, &state).await {
-        Ok(_) => logger::end_action("Succeeded"),
-        Err(e) => {
-            logger::end_action(Paint::red(e));
-            return 1;
+    {
+        let baseline = state.environment(&environment_config.label).cloned();
+        let target = SaveTarget::new(&environment_config.label, baseline);
+        match save_state_cas(
+            &project_path,
+            &state_config,
+            &mut state,
+            &state_handle,
+            &target,
+        )
+        .await
+        {
+            Ok(new_handle) => {
+                state_handle = new_handle;
+                logger::end_action("Succeeded");
+            }
+            Err(e) => {
+                logger::end_action(Paint::red(e));
+                let _ = release_environment_lock(
+                    &project_path,
+                    &state_config,
+                    &mut state,
+                    &mut state_handle,
+                    &lock_session,
+                )
+                .await;
+                return 1;
+            }
         }
-    };
+    }
+
+    if let Err(e) = release_environment_lock(
+        &project_path,
+        &state_config,
+        &mut state,
+        &mut state_handle,
+        &lock_session,
+    )
+    .await
+    {
+        logger::log(Paint::yellow(format!(
+            "Warning: failed to release environment lock: {}",
+            e
+        )));
+    }
 
     match results {
         Ok(_) => 0,

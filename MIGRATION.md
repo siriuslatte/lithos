@@ -45,6 +45,34 @@ the next save:
 4. Run `lithos deploy` once. Confirm a fresh `.lithos-state.yml` (or remote object) is produced.
 5. Delete the legacy `.mantle-state.yml` after verifying the new state.
 
+## Concurrency model (new in Lithos)
+
+Lithos serializes mutating commands per environment via an in-document
+lock plus compare-and-swap on every state write. This is a behavior
+change from Mantle, which trusted the shared remote state file as the
+only coordination point.
+
+Practical consequences when migrating:
+
+- The state document now has a top-level `locks:` map keyed by
+  environment label. It is `#[serde(default)]`, so older state files
+  continue to load unchanged; the field is added the first time Lithos
+  writes after acquiring a lock.
+- Two concurrent runs against the same environment no longer race. The
+  second one fails immediately with a diagnostic pointing at
+  `lithos lock break --environment <env>`. Cross-environment runs still
+  proceed in parallel.
+- Crashed or killed runs leave behind a lock that goes stale after
+  15 minutes (heartbeats are written on every progress update) and is
+  reclaimed automatically. Use `lithos lock list` to inspect, and
+  `lithos lock break --environment <env>` to recover faster.
+- For S3 / R2 backends, compare-and-swap is best-effort
+  (load-then-write); the in-document lock is the authoritative protection
+  against multi-writer corruption. Local state additionally uses an
+  atomic tmp + rename on save.
+
+Full details: **[State and reconciliation → Concurrency](docs/site/pages/docs/concepts/state.mdx)**.
+
 ## Documentation hosting
 
 The documentation site moved from Vercel (`mantledeploy.vercel.app`) to GitHub Pages. Every push to

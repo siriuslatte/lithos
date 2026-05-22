@@ -3,6 +3,7 @@ pub mod destroy;
 pub mod diff;
 pub mod download;
 pub mod import;
+pub mod lock;
 pub mod outputs;
 pub mod undo;
 pub mod upload;
