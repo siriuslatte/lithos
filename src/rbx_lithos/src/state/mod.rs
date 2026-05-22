@@ -11,6 +11,7 @@ mod io;
 mod legacy_resources;
 mod progress;
 pub mod reconcile;
+pub mod store;
 pub mod v1;
 pub mod v2;
 pub mod v3;
@@ -32,3 +33,4 @@ pub use reconcile::{
     reconcile_graph, reconcile_graph_with_statuses, verify_graph, LiveStateVerifier,
     ReconciliationCounts, ReconciliationReport, RobloxLiveStateVerifier, VerificationStatus,
 };
+pub use store::{build_store, LoadedState, SaveError, StateHandle, StateStore};
