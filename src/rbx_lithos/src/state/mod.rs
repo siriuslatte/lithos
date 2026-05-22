@@ -9,6 +9,7 @@ mod build;
 mod history;
 mod io;
 mod legacy_resources;
+pub mod lock;
 mod progress;
 pub mod reconcile;
 pub mod store;
@@ -28,6 +29,10 @@ pub use io::{
     get_previous_state, get_state, get_state_from_source, load_state_from_source,
     load_state_with_handle, save_state, save_state_cas, save_state_to_file, save_state_to_remote,
     ResourceStateVLatest, SaveTarget,
+};
+pub use lock::{
+    new_owner_id, AcquireOutcome, EnvironmentLock, LockError, DEFAULT_HEARTBEAT_INTERVAL,
+    DEFAULT_LOCK_TTL,
 };
 pub use progress::DeploymentProgressWriter;
 pub use reconcile::{

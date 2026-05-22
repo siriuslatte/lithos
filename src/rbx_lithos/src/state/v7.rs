@@ -9,6 +9,7 @@ use crate::{
     roblox_resource_manager::{RobloxInputs, RobloxOutputs, RobloxResource},
 };
 
+use super::lock::EnvironmentLock;
 use super::v6::ResourceStateV6;
 
 const MAX_DEPLOYMENT_HISTORY: usize = 10;
@@ -16,6 +17,11 @@ const MAX_DEPLOYMENT_HISTORY: usize = 10;
 #[derive(Serialize, Deserialize, Clone)]
 pub struct ResourceStateV7 {
     pub environments: BTreeMap<String, EnvironmentStateV7>,
+    /// Advisory locks held by mutating commands, keyed by environment label.
+    /// Defaulted so v7 documents written before locks were introduced
+    /// continue to parse.
+    #[serde(default)]
+    pub locks: BTreeMap<String, EnvironmentLock>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Default)]
@@ -96,6 +102,7 @@ impl From<ResourceStateV6> for ResourceStateV7 {
                     )
                 })
                 .collect(),
+            locks: BTreeMap::new(),
         }
     }
 }
@@ -302,6 +309,7 @@ mod tests {
     fn prefers_latest_rollback_record() {
         let mut state = ResourceStateV7 {
             environments: BTreeMap::new(),
+            locks: BTreeMap::new(),
         };
         let baseline = vec![resource("baseline")];
         let desired = vec![resource("desired")];
@@ -352,6 +360,7 @@ mod tests {
                     deployments: Vec::new(),
                 },
             )]),
+            locks: BTreeMap::new(),
         };
 
         let deployment_id = state.begin_deployment(

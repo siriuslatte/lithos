@@ -115,6 +115,7 @@ pub async fn load_state_from_source(
     let state = match bytes {
         None => ResourceStateVLatest {
             environments: BTreeMap::new(),
+            locks: BTreeMap::new(),
         },
         Some(bytes) => parse_state_bytes(&store_label(source), &bytes)?,
     };
@@ -366,6 +367,7 @@ pub async fn save_state_cas(
                     Some(bytes) => parse_state_bytes(&store_label(state_config), bytes)?,
                     None => ResourceStateVLatest {
                         environments: BTreeMap::new(),
+                        locks: BTreeMap::new(),
                     },
                 };
                 rebase_onto_latest(state, latest_state, target)?;
@@ -466,6 +468,7 @@ mod tests {
     fn state_with_env(label: &str, marker: &str) -> ResourceStateVLatest {
         let mut state = ResourceStateVLatest {
             environments: BTreeMap::new(),
+            locks: BTreeMap::new(),
         };
         state.environments.insert(
             label.to_owned(),
@@ -485,6 +488,7 @@ mod tests {
         // Seed: state contains both environments.
         let mut seed = ResourceStateVLatest {
             environments: BTreeMap::new(),
+            locks: BTreeMap::new(),
         };
         seed.environments.insert(
             "dev".to_owned(),

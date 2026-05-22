@@ -125,6 +125,7 @@ mod tests {
                     deployments: vec![record],
                 },
             )]),
+            locks: BTreeMap::new(),
         };
 
         let snapshot = rollback_snapshot(&state, "prod").unwrap();
