@@ -20,7 +20,7 @@ Releases are published from [`siriuslatte/lithos`](https://github.com/siriuslatt
 ```toml
 # foreman.toml
 [tools]
-lithos = { source = "siriuslatte/lithos", version = "0.3.0" }
+lithos = { source = "siriuslatte/lithos", version = "0.4.0" }
 ```
 
 ### Manual
