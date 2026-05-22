@@ -8,8 +8,12 @@
 -- Contract:
 --   * The user script may return either:
 --       - a config table directly, or
---       - a table shaped `{ config = <table>, ... }` (additional fields are
---         currently reserved for future hook support).
+--       - a table shaped `{ config = <table>, ... }` with optional hook
+--         functions (e.g. `onConfigLoaded`) alongside `config`.
+--   * Hook functions discovered at the top level are reported back to Lithos
+--     and (for `onConfigLoaded`) invoked here. Function-valued keys are
+--     stripped from the config table before JSON encoding so users can mix
+--     data and hook callbacks in a single return value.
 --   * Anything written to stdout outside the sentinel markers is ignored by
 --     Lithos, but the user is still free to `print` for debugging.
 --
@@ -31,17 +35,63 @@ end
 
 local mod = require(userPath)
 
-local config
-if type(mod) == "table" and type(mod.config) == "table" then
-	config = mod.config
-elseif type(mod) == "table" then
-	config = mod
-else
-	stdio.ewrite("[lithos] user config must return a table or `{ config = <table> }`, got " .. type(mod) .. "\n")
+if type(mod) ~= "table" then
+	stdio.ewrite("[lithos] user config must return a table or `{ config = <table>, ... }`, got " .. type(mod) .. "\n")
 	process.exit(66)
 end
 
-local okEncode, encoded = pcall(serde.encode, "json", config)
+-- Collect hook functions defined at the top level of the returned table.
+-- Hooks must use the `on<Name>` naming convention so we can distinguish
+-- them from user helpers that happen to be defined at the top level.
+local hooks = {}
+for k, v in pairs(mod) do
+	if type(v) == "function" and type(k) == "string" and k:sub(1, 2) == "on" then
+		table.insert(hooks, k)
+	end
+end
+
+-- Resolve the config table.
+local config
+if type(mod.config) == "table" then
+	config = mod.config
+else
+	-- Treat the returned table itself as the config, stripping out any
+	-- function values so JSON encoding does not fail on hook callbacks.
+	config = {}
+	for k, v in pairs(mod) do
+		if type(v) ~= "function" then
+			config[k] = v
+		end
+	end
+end
+
+-- Invoke the synchronous `onConfigLoaded` hook if present. It receives the
+-- decoded config table and may return a replacement table.
+if type(mod.onConfigLoaded) == "function" then
+	local okHook, hookResult = pcall(mod.onConfigLoaded, config)
+	if not okHook then
+		stdio.ewrite("[lithos] onConfigLoaded hook failed: " .. tostring(hookResult) .. "\n")
+		process.exit(68)
+	end
+	if type(hookResult) == "table" then
+		config = hookResult
+	elseif hookResult ~= nil then
+		stdio.ewrite("[lithos] onConfigLoaded must return a table or nil; got " .. type(hookResult) .. "\n")
+		process.exit(69)
+	end
+end
+
+local envelope = {
+	config = config,
+}
+-- Lune's JSON encoder cannot tell an empty Lua table from an empty array,
+-- so only attach `hooks` when at least one hook was registered. Rust treats
+-- the missing field as an empty list.
+if #hooks > 0 then
+	envelope.hooks = hooks
+end
+
+local okEncode, encoded = pcall(serde.encode, "json", envelope)
 if not okEncode then
 	stdio.ewrite("[lithos] failed to encode user config as JSON: " .. tostring(encoded) .. "\n")
 	process.exit(67)

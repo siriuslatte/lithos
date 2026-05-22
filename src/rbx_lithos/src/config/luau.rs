@@ -44,6 +44,12 @@ const WRAPPER_SCRIPT: &str = include_str!("luau_wrapper.luau");
 /// Result of evaluating a Luau / Lua config file.
 pub struct LuauEvaluation {
     pub config: Config,
+    /// Names of hook functions the user defined at the top level of the
+    /// returned table (e.g. `onConfigLoaded`, `onBeforeDeploy`). Lithos uses
+    /// this list to log which hooks were registered and to know whether to
+    /// re-invoke Lune for lifecycle hooks in future deploy steps.
+    #[allow(dead_code)] // Reserved for upcoming deploy-lifecycle integration.
+    pub hooks: Vec<String>,
 }
 
 /// Returns `true` for file paths Lithos should evaluate via Lune.
@@ -132,7 +138,22 @@ pub fn load_lua_config(config_file: &Path) -> Result<LuauEvaluation, String> {
 
     let json_payload = extract_marker_payload(&stdout, &stderr, config_file)?;
 
-    let config: Config = serde_json::from_str(&json_payload).map_err(|e| {
+    #[derive(serde::Deserialize)]
+    struct Envelope {
+        config: serde_json::Value,
+        #[serde(default)]
+        hooks: Vec<String>,
+    }
+
+    let envelope: Envelope = serde_json::from_str(&json_payload).map_err(|e| {
+        format!(
+            "Luau config {} produced a payload Lithos could not decode:\n\t{}",
+            config_file.display(),
+            e
+        )
+    })?;
+
+    let config: Config = serde_json::from_value(envelope.config).map_err(|e| {
         format!(
             "Luau config {} returned data that does not match the Lithos config schema:\n\t{}",
             config_file.display(),
@@ -140,7 +161,10 @@ pub fn load_lua_config(config_file: &Path) -> Result<LuauEvaluation, String> {
         )
     })?;
 
-    Ok(LuauEvaluation { config })
+    Ok(LuauEvaluation {
+        config,
+        hooks: envelope.hooks,
+    })
 }
 
 fn extract_marker_payload(
@@ -482,6 +506,72 @@ return {
         assert!(
             err.contains("schema") || err.contains("missing") || err.contains("unknown"),
             "expected a schema-style error; got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn on_config_loaded_hook_can_transform_config() {
+        if !lune_available() {
+            eprintln!("skipping: lune not available on PATH");
+            return;
+        }
+        let dir = TempLuauDir::new();
+        let file = dir.write(
+            "lithos.luau",
+            r#"
+return {
+    config = {
+        environments = { { label = "production", branches = { "main" } } },
+        target = { experience = { places = { start = { file = "p.rbxl" } } } },
+    },
+    onConfigLoaded = function(config)
+        table.insert(config.environments, { label = "staging", branches = { "develop" } })
+        return config
+    end,
+    onBeforeDeploy = function() end,
+}
+"#,
+        );
+
+        let eval = match load_lua_config(&file) {
+            Ok(eval) => eval,
+            Err(err) => panic!("hook evaluation should succeed: {}", err),
+        };
+        assert_eq!(eval.config.environments.len(), 2);
+        assert_eq!(eval.config.environments[1].label, "staging");
+        let mut hook_names = eval.hooks.clone();
+        hook_names.sort();
+        assert_eq!(hook_names, vec!["onBeforeDeploy", "onConfigLoaded"]);
+    }
+
+    #[test]
+    fn on_config_loaded_hook_failure_is_surfaced() {
+        if !lune_available() {
+            eprintln!("skipping: lune not available on PATH");
+            return;
+        }
+        let dir = TempLuauDir::new();
+        let file = dir.write(
+            "lithos.luau",
+            r#"
+return {
+    config = {
+        environments = { { label = "production", branches = { "main" } } },
+        target = { experience = { places = { start = { file = "p.rbxl" } } } },
+    },
+    onConfigLoaded = function() error("hook exploded") end,
+}
+"#,
+        );
+
+        let err = match load_lua_config(&file) {
+            Ok(_) => panic!("hook failure should propagate"),
+            Err(e) => e,
+        };
+        assert!(
+            err.contains("onConfigLoaded") && err.contains("hook exploded"),
+            "expected hook error to surface; got: {}",
             err
         );
     }
