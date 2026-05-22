@@ -444,4 +444,139 @@ mod tests {
         assert_eq!(broken.owner_id, "owner-a");
         assert!(state.environment_lock("prod").is_none());
     }
+
+    #[tokio::test]
+    async fn second_acquire_against_persisted_lock_is_rejected() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let cfg = StateConfig::Local;
+
+        // First acquirer.
+        let (mut state, mut handle) = load_state_from_source(dir.path(), &cfg).await.unwrap();
+        let _session =
+            acquire_environment_lock(dir.path(), &cfg, &mut state, &mut handle, "prod", "deploy")
+                .await
+                .expect("first acquire succeeds");
+
+        // Second acquirer loads fresh state and should see the existing lock.
+        let (mut state_b, mut handle_b) = load_state_from_source(dir.path(), &cfg).await.unwrap();
+        let err = acquire_environment_lock(
+            dir.path(),
+            &cfg,
+            &mut state_b,
+            &mut handle_b,
+            "prod",
+            "deploy",
+        )
+        .await
+        .expect_err("second acquire must be rejected");
+        assert!(
+            err.contains("lithos lock break"),
+            "diagnostic should point at recovery command, got: {}",
+            err
+        );
+    }
+
+    #[tokio::test]
+    async fn force_break_then_reacquire_succeeds() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let cfg = StateConfig::Local;
+
+        let (mut state, mut handle) = load_state_from_source(dir.path(), &cfg).await.unwrap();
+        let _ =
+            acquire_environment_lock(dir.path(), &cfg, &mut state, &mut handle, "prod", "deploy")
+                .await
+                .unwrap();
+
+        let broken = force_break_environment_lock(dir.path(), &cfg, "prod")
+            .await
+            .unwrap();
+        assert!(broken.is_some(), "should have broken an existing lock");
+
+        // Reacquire from a fresh load.
+        let (mut state_b, mut handle_b) = load_state_from_source(dir.path(), &cfg).await.unwrap();
+        acquire_environment_lock(
+            dir.path(),
+            &cfg,
+            &mut state_b,
+            &mut handle_b,
+            "prod",
+            "deploy",
+        )
+        .await
+        .expect("reacquire after force_break must succeed");
+    }
+
+    #[tokio::test]
+    async fn force_break_when_no_lock_returns_none() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let cfg = StateConfig::Local;
+        let result = force_break_environment_lock(dir.path(), &cfg, "prod")
+            .await
+            .unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn release_drops_lock_and_unblocks_next_acquirer() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let cfg = StateConfig::Local;
+
+        let (mut state, mut handle) = load_state_from_source(dir.path(), &cfg).await.unwrap();
+        let session =
+            acquire_environment_lock(dir.path(), &cfg, &mut state, &mut handle, "prod", "deploy")
+                .await
+                .unwrap();
+        release_environment_lock(dir.path(), &cfg, &mut state, &mut handle, &session)
+            .await
+            .unwrap();
+
+        let (mut state_b, mut handle_b) = load_state_from_source(dir.path(), &cfg).await.unwrap();
+        acquire_environment_lock(
+            dir.path(),
+            &cfg,
+            &mut state_b,
+            &mut handle_b,
+            "prod",
+            "deploy",
+        )
+        .await
+        .expect("acquire after release should succeed");
+    }
+
+    #[tokio::test]
+    async fn cross_environment_locks_do_not_conflict() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let cfg = StateConfig::Local;
+
+        let (mut state_a, mut handle_a) = load_state_from_source(dir.path(), &cfg).await.unwrap();
+        acquire_environment_lock(
+            dir.path(),
+            &cfg,
+            &mut state_a,
+            &mut handle_a,
+            "dev",
+            "deploy",
+        )
+        .await
+        .unwrap();
+
+        // A second client takes prod from its own freshly-loaded state; this
+        // exercises the cross-env merge path in save_state_cas.
+        let (mut state_b, mut handle_b) = load_state_from_source(dir.path(), &cfg).await.unwrap();
+        acquire_environment_lock(
+            dir.path(),
+            &cfg,
+            &mut state_b,
+            &mut handle_b,
+            "prod",
+            "deploy",
+        )
+        .await
+        .expect("different-environment lock should succeed");
+
+        // Final state on disk should carry both locks.
+        let (final_state, _) = load_state_from_source(dir.path(), &cfg).await.unwrap();
+        assert!(final_state.environment_lock("dev").is_some());
+        assert!(final_state.environment_lock("prod").is_some());
+    }
 }
