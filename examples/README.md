@@ -5,6 +5,7 @@ Runnable example projects for learning Lithos.
 | Project                                       | What it shows                                                                                                                                |
 | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`getting-started`](projects/getting-started) | The smallest valid `lithos.yml`: one experience, one place, two environments.                                                                |
+| [`luau-config`](projects/luau-config)         | A Luau-based `lithos.luau` with helpers, a loop over environments, and an `onConfigLoaded` hook.                                            |
 | [`pirate-wars`](projects/pirate-wars)         | A near-complete project: multi-place, icon, thumbnails, products, passes, badges, social links, notifications, asset bundle, env overrides. |
 
 ## Usage

@@ -25,8 +25,9 @@ export async function getStaticProps() {
 
 # Configuration
 
-Lithos configs can be written in YAML or JSON. This page covers file
-discovery, path resolution, `outputs` defaults, and schema tooling.
+Lithos configs can be written in YAML, JSON, or Luau / Lua. This page
+covers file discovery, path resolution, `outputs` defaults, scripting
+with Lune, and schema tooling.
 
 <Callout type="info">
   Looking for every supported key? Jump straight to the
@@ -44,13 +45,14 @@ order:
 
 1. If `PROJECT` is omitted, the current directory is the project.
 2. If `PROJECT` is a directory, Lithos searches it for one of:
-   `lithos.yml`, `lithos.yaml`, `lithos.json`, then legacy `mantle.yml`,
-   `mantle.yaml`.
+   `lithos.yml`, `lithos.yaml`, `lithos.json`, `lithos.luau`,
+   `lithos.lua`, then legacy `mantle.yml`, `mantle.yaml`.
 3. If `PROJECT` is a file, Lithos uses it directly. Explicit paths can
-   point to YAML or JSON.
+   point to YAML, JSON, Luau, or Lua.
 
-When more than one discovered file exists, `lithos.*` always wins over
-the legacy Mantle names.
+When more than one discovered file exists, declarative formats win over
+scripts (`.yml` > `.yaml` > `.json` > `.luau` > `.lua`), and `lithos.*`
+always wins over the legacy Mantle names.
 
 ## File path resolution
 
@@ -121,12 +123,105 @@ outputs:
 ## YAML and JSON
 
 Lithos accepts YAML and JSON interchangeably. Auto-discovery prefers
-`lithos.yml` → `lithos.yaml` → `lithos.json`, then the legacy Mantle
-names. JSONC and YAML anchors-in-comments are not supported.
+`lithos.yml` → `lithos.yaml` → `lithos.json`, then `lithos.luau` →
+`lithos.lua`, then the legacy Mantle names. JSONC and YAML
+anchors-in-comments are not supported.
 
 If you need a YAML refresher, see
 [Learn YAML in Y Minutes](https://learnxinyminutes.com/docs/yaml/) or
 the [examples repo](https://github.com/siriuslatte/lithos/tree/main/examples).
+
+## Luau and Lua
+
+For projects whose configuration would otherwise be repetitive
+(many similar places, programmatically derived asset lists,
+environment-driven branches), Lithos can evaluate a Luau or Lua file
+instead of a static YAML / JSON document.
+
+<Callout type="info">
+  Luau configs are executed by [Lune](https://lune-org.github.io/docs),
+  an external Luau runtime. Install Lune (via
+  [Aftman](https://github.com/LPGhatguy/aftman),
+  [Foreman](https://github.com/Roblox/foreman), or your package manager)
+  and make sure the `lune` binary is on `PATH`. To pin a specific
+  binary, set `LITHOS_LUNE=/path/to/lune`.
+</Callout>
+
+Your script must `return` a table whose shape matches the same schema
+the YAML and JSON configs use, or a table of the form
+`{ config = <table>, ... }` (which leaves room for hooks, see below).
+
+```luau filename="project/lithos.luau"
+local environments = { "production", "staging", "dev" }
+
+local config = {
+    environments = {},
+    target = {
+        experience = {
+            places = {
+                start = { file = "game.rbxl" },
+            },
+        },
+    },
+}
+
+for _, label in ipairs(environments) do
+    table.insert(config.environments, {
+        label = label,
+        branches = { label == "production" and "main" or label },
+    })
+end
+
+return config
+```
+
+Because the file is just Luau, you can `require` shared helpers, read
+environment variables via `@lune/process`, and pull in JSON / TOML
+snippets through `@lune/serde` — exactly like any other Lune script.
+
+### Hooks
+
+Return a table with named hook functions alongside `config` to react
+to Lithos lifecycle events. Today Lithos invokes one hook synchronously
+at load time; additional hooks are recorded so future deploy steps can
+route into them.
+
+```luau filename="project/lithos.luau"
+return {
+    config = {
+        environments = { { label = "production", branches = { "main" } } },
+        target = {
+            experience = {
+                places = { start = { file = "game.rbxl" } },
+            },
+        },
+    },
+
+    -- Runs immediately after Lithos evaluates the config. Return a new
+    -- table to replace the loaded config, or `nil` to leave it as-is.
+    onConfigLoaded = function(config)
+        if os.getenv("CI") then
+            config.environments[1].branches = { "main", "release/*" }
+        end
+        return config
+    end,
+
+    -- Registered for future deploy lifecycle integration.
+    onBeforeDeploy = function() end,
+    onAfterDeploy = function() end,
+}
+```
+
+<Callout type="warning">
+  Hook functions must use the `on<Name>` naming convention so Lithos
+  can distinguish them from helpers that happen to live at the top
+  level. Function values found anywhere else are stripped from the
+  config before validation.
+</Callout>
+
+If Lune cannot start, the user script raises an error, or the returned
+table does not match the Lithos schema, Lithos surfaces the failure
+together with the offending config path and Lune's stderr.
 
 ## Editor schemas
 
