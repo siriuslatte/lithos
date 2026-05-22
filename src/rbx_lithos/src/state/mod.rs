@@ -25,8 +25,9 @@ pub use history::{
     build_failure_journal, build_success_journal, latest_deployment_diagnostics, rollback_snapshot,
 };
 pub use io::{
-    get_previous_state, get_state, get_state_from_source, save_state, save_state_to_file,
-    save_state_to_remote, ResourceStateVLatest,
+    get_previous_state, get_state, get_state_from_source, load_state_from_source,
+    load_state_with_handle, save_state, save_state_cas, save_state_to_file, save_state_to_remote,
+    ResourceStateVLatest, SaveTarget,
 };
 pub use progress::DeploymentProgressWriter;
 pub use reconcile::{
