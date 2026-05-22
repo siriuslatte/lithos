@@ -12,34 +12,43 @@ use crate::{
 
 use super::{
     history::{build_failure_journal, build_success_journal},
-    io::{save_state, ResourceStateVLatest},
+    io::{save_state_cas, ResourceStateVLatest, SaveTarget},
+    lock::{heartbeat_environment_lock, EnvironmentLockSession},
+    store::StateHandle,
 };
 
 pub struct DeploymentProgressWriter<'a> {
     project_path: &'a Path,
     state_config: &'a StateConfig,
     state: &'a mut ResourceStateVLatest,
+    state_handle: &'a mut StateHandle,
     environment_label: &'a str,
     deployment_id: &'a str,
     baseline_graph: &'a ResourceGraph<RobloxResource, RobloxInputs, RobloxOutputs>,
+    lock: Option<&'a EnvironmentLockSession>,
 }
 
 impl<'a> DeploymentProgressWriter<'a> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         project_path: &'a Path,
         state_config: &'a StateConfig,
         state: &'a mut ResourceStateVLatest,
+        state_handle: &'a mut StateHandle,
         environment_label: &'a str,
         deployment_id: &'a str,
         baseline_graph: &'a ResourceGraph<RobloxResource, RobloxInputs, RobloxOutputs>,
+        lock: Option<&'a EnvironmentLockSession>,
     ) -> Self {
         Self {
             project_path,
             state_config,
             state,
+            state_handle,
             environment_label,
             deployment_id,
             baseline_graph,
+            lock,
         }
     }
 
@@ -98,6 +107,28 @@ impl EvaluateProgressHandler<RobloxResource, RobloxInputs, RobloxOutputs>
             Some(Self::progress_summary(results, failures)),
         );
 
-        save_state(self.project_path, self.state_config, self.state).await
+        if let Some(session) = self.lock {
+            heartbeat_environment_lock(
+                self.project_path,
+                self.state_config,
+                self.state,
+                self.state_handle,
+                session,
+            )
+            .await?;
+        }
+
+        let baseline = self.state.environment(self.environment_label).cloned();
+        let target = SaveTarget::new(self.environment_label, baseline);
+        let new_handle = save_state_cas(
+            self.project_path,
+            self.state_config,
+            self.state,
+            self.state_handle,
+            &target,
+        )
+        .await?;
+        *self.state_handle = new_handle;
+        Ok(())
     }
 }

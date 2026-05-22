@@ -122,7 +122,7 @@ export function HomeLanding() {
 
         <div className="lithos-home-hero-shell">
           <div className="lithos-home-hero-content">
-            <span className="lithos-home-version">v0.3.0</span>
+            <span className="lithos-home-version">v0.4.0</span>
 
             <h1 className="lithos-home-title">Lithos</h1>
 

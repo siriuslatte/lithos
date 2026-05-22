@@ -121,6 +121,77 @@ lithos diff --live
 That prints the same diff a `deploy` would, against the reconciled state,
 without prompting and without writing.
 
+## Concurrency: locks and compare-and-swap
+
+Lithos serializes mutating operations (`deploy`, `undo`, `destroy`,
+`import`) on a per-environment basis. Two concurrent runs against the same
+environment will not race: one wins, the other fails fast with a
+diagnostic.
+
+This is implemented with two layers that live entirely inside the state
+document, so the protocol is identical for local files and for remote
+backends.
+
+### Compare-and-swap on every write
+
+Every mutating save is compare-and-swap (CAS). When a command loads state,
+it captures a revision handle (a content hash, plus an optional backend
+ETag when available). When it tries to save, the store rejects the write
+if the handle no longer matches what is on disk or in the bucket.
+
+If the conflict is on **a different environment**, Lithos automatically
+re-bases: it keeps the slice it just modified and merges in the other
+environment(s) from the latest version. Cross-environment runs therefore
+never block each other.
+
+If the conflict is on **the same environment**, the save aborts with a
+hard error. The command exits non-zero without persisting.
+
+For local state this is enforced by hashing the on-disk file plus a tmp +
+atomic-rename write. For S3/R2 it is best-effort (load-then-write); the
+authoritative protection in the multi-writer case is the in-document lock
+described next.
+
+### Environment-scoped locks
+
+Before a mutating command touches anything, it acquires an advisory lock
+for the target environment. The lock lives inside the state file (under a
+top-level `locks:` map keyed by environment label) and carries:
+
+- The owner id (hostname + pid + nanosecond timestamp).
+- The host, PID, and operation name (`deploy`, `undo`, …).
+- The time it was acquired and the last heartbeat.
+
+A second `lithos deploy --environment prod` while a first one is still
+running fails immediately with a diagnostic that names the holder and
+points at `lithos lock break`. Long-running deploys refresh the heartbeat
+on every progress write, so the lock stays fresh while real work is
+happening.
+
+### Stale-lock recovery
+
+If a run crashes, loses its network, or is killed, its lock will eventually
+go stale (heartbeat older than the TTL — 15 minutes by default). The next
+acquirer reclaims it automatically.
+
+For faster recovery — for example, you know the CI job that crashed five
+minutes ago is gone for good and you don't want to wait for the TTL — use
+the CLI:
+
+```bash
+# Show every lock currently held, with staleness flagged.
+lithos lock list
+
+# Forcibly release a specific environment's lock.
+lithos lock break --environment prod
+```
+
+Only break a lock after confirming no other Lithos process is still
+mutating that environment. Breaking the lock while a real deploy is in
+flight does not corrupt state — the running deploy's next CAS write will
+fail and the run will abort — but you will end up with a partial deploy
+and have to run again.
+
 ## Legacy `mantle.yml` / `.mantle-state.yml`
 
 Lithos reads both Mantle and Lithos config and state files. New writes use

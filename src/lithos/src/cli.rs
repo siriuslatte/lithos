@@ -237,6 +237,36 @@ fn get_app() -> App<'static, 'static> {
                                 .takes_value(true))
                 )
         )
+        .subcommand(
+            SubCommand::with_name("lock")
+                .about("Inspect and recover environment-scoped state locks.")
+                .setting(AppSettings::ArgRequiredElseHelp)
+                .subcommand(
+                    SubCommand::with_name("list")
+                        .about("List all locks currently held in state.")
+                        .arg(
+                            Arg::with_name("PROJECT")
+                                .index(1)
+                                .help(PROJECT_HELP)
+                                .takes_value(true))
+                )
+                .subcommand(
+                    SubCommand::with_name("break")
+                        .about("Forcibly release a lock for an environment. Intended for recovering from crashed runs after confirming no other operation is still in flight.")
+                        .arg(
+                            Arg::with_name("PROJECT")
+                                .index(1)
+                                .help(PROJECT_HELP)
+                                .takes_value(true))
+                        .arg(
+                            Arg::with_name("environment")
+                                .long("environment")
+                                .help("The label of the environment whose lock should be released.")
+                                .value_name("ENVIRONMENT")
+                                .takes_value(true)
+                                .required(true))
+                )
+        )
 }
 
 pub async fn run_with(args: Vec<String>) -> i32 {
@@ -345,6 +375,19 @@ pub async fn run_with(args: Vec<String>) -> i32 {
                 commands::upload::run(
                     upload_matches.value_of("PROJECT"),
                     upload_matches.value_of("key"),
+                )
+                .await
+            }
+            _ => unreachable!(),
+        },
+        ("lock", Some(lock_matches)) => match lock_matches.subcommand() {
+            ("list", Some(list_matches)) => {
+                commands::lock::list(list_matches.value_of("PROJECT")).await
+            }
+            ("break", Some(break_matches)) => {
+                commands::lock::break_lock(
+                    break_matches.value_of("PROJECT"),
+                    break_matches.value_of("environment").unwrap(),
                 )
                 .await
             }
