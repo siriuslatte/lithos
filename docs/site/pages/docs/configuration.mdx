@@ -151,7 +151,7 @@ Your script must `return` a table whose shape matches the same schema
 the YAML and JSON configs use, or a table of the form
 `{ config = <table>, ... }` (which leaves room for hooks, see below).
 
-```luau filename="project/lithos.luau"
+```lua filename="project/lithos.luau"
 local environments = { "production", "staging", "dev" }
 
 local config = {
@@ -186,7 +186,7 @@ to Lithos lifecycle events. Today Lithos invokes one hook synchronously
 at load time; additional hooks are recorded so future deploy steps can
 route into them.
 
-```luau filename="project/lithos.luau"
+```lua filename="project/lithos.luau"
 return {
     config = {
         environments = { { label = "production", branches = { "main" } } },

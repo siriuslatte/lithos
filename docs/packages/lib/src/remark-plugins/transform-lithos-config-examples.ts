@@ -14,6 +14,13 @@ const PROJECT_CONFIG_KEYS = new Set([
   'state',
 ]);
 
+// Reserved words that cannot be used as bare identifiers in Lua / Luau.
+const LUAU_RESERVED = new Set([
+  'and', 'break', 'do', 'else', 'elseif', 'end', 'false', 'for',
+  'function', 'if', 'in', 'local', 'nil', 'not', 'or', 'repeat',
+  'return', 'then', 'true', 'until', 'while', 'continue',
+]);
+
 type CodeNode = {
   lang?: string;
   meta?: string;
@@ -39,12 +46,19 @@ export function createTransformLithosConfigExamples(
           return;
         }
 
-        const jsonValue = convertYamlToJson(codeNode.value);
-        if (!jsonValue) {
+        const parsed = safeParseYaml(codeNode.value);
+        if (parsed === undefined) {
           return;
         }
 
-        parent.children.splice(index, 1, createTabsNode(codeNode, jsonValue));
+        const jsonValue = JSON.stringify(parsed, null, 2);
+        const luauValue = convertToLuauReturn(parsed);
+
+        parent.children.splice(
+          index,
+          1,
+          createTabsNode(codeNode, jsonValue, luauValue)
+        );
       });
     };
   };
@@ -110,32 +124,46 @@ function isLithosConfigFilename(filename: string) {
   return /(^|\/)lithos\.ya?ml$/.test(filename);
 }
 
-function convertYamlToJson(yamlSource: string) {
+function safeParseYaml(yamlSource: string): unknown | undefined {
   try {
-    const parsed = parseYaml(yamlSource);
-    return JSON.stringify(parsed, null, 2);
+    return parseYaml(yamlSource);
   } catch {
     return undefined;
   }
 }
 
-function createTabsNode(codeNode: CodeNode, jsonValue: string) {
+function createTabsNode(codeNode: CodeNode, jsonValue: string, luauValue: string) {
   return {
     type: 'mdxJsxFlowElement',
     name: 'ConfigFormatTabs',
     attributes: [],
     children: [
-      createTabNode('YAML', createCodeNode(codeNode, codeNode.value, codeNode.meta)),
+      createTabNode(
+        'YAML',
+        createCodeNode('yaml', codeNode.value, codeNode.meta)
+      ),
       createTabNode(
         'JSON',
-        createCodeNode(codeNode, jsonValue, buildJsonMeta(codeNode.meta))
+        createCodeNode(
+          'json',
+          jsonValue,
+          rewriteFilenameMeta(codeNode.meta, 'lithos.json')
+        )
+      ),
+      createTabNode(
+        'Luau',
+        createCodeNode(
+          'lua',
+          luauValue,
+          rewriteFilenameMeta(codeNode.meta, 'lithos.luau')
+        )
       ),
     ],
     data: { _mdxExplicitJsx: true },
   };
 }
 
-function createTabNode(label: string, codeNode: CodeNode) {
+function createTabNode(label: string, codeNode: ReturnType<typeof createCodeNode>) {
   return {
     type: 'mdxJsxFlowElement',
     name: 'ConfigFormatTab',
@@ -145,26 +173,104 @@ function createTabNode(label: string, codeNode: CodeNode) {
   };
 }
 
-function createCodeNode(codeNode: CodeNode, value: string, meta?: string) {
-  return {
-    type: 'code',
-    lang: value === codeNode.value ? 'yaml' : 'json',
-    meta,
-    value,
-  };
+function createCodeNode(lang: string, value: string, meta?: string) {
+  return { type: 'code', lang, meta, value };
 }
 
-function buildJsonMeta(meta?: string) {
+function rewriteFilenameMeta(meta: string | undefined, replacementName: string) {
   const filename = extractFilenameFromMeta(meta);
   if (!filename) {
     return undefined;
   }
 
-  const jsonFilename = filename.replace(/lithos\.ya?ml$/i, 'lithos.json');
-  return `filename="${jsonFilename}"`;
+  const newFilename = filename.replace(
+    /lithos\.(ya?ml|json|luau|lua)$/i,
+    replacementName
+  );
+  return `filename="${newFilename}"`;
 }
 
 function extractFilenameFromMeta(meta?: string) {
   const match = meta?.match(/(?:filename|title)="([^"]+)"/);
   return match?.[1];
+}
+
+// ---------------------------------------------------------------------------
+// Luau pretty-printer. Mirrors the JavaScript port in
+// `docs/site/remark-plugins/transform-lithos-config-examples.js`.
+// ---------------------------------------------------------------------------
+
+function convertToLuauReturn(value: unknown): string {
+  return `return ${formatLuauValue(value, 0)}\n`;
+}
+
+function formatLuauValue(value: unknown, indent: number): string {
+  if (value === null || value === undefined) {
+    return 'nil';
+  }
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? String(value) : 'nil';
+  }
+  if (typeof value === 'string') {
+    return formatLuauString(value);
+  }
+  if (Array.isArray(value)) {
+    return formatLuauArray(value, indent);
+  }
+  if (typeof value === 'object') {
+    return formatLuauObject(value as Record<string, unknown>, indent);
+  }
+  return 'nil';
+}
+
+function formatLuauString(value: string): string {
+  if (!value.includes('\n')) {
+    return JSON.stringify(value);
+  }
+
+  let level = 0;
+  while (value.includes(`]${'='.repeat(level)}]`)) {
+    level += 1;
+  }
+  const padding = '='.repeat(level);
+  return `[${padding}[\n${value}]${padding}]`;
+}
+
+function formatLuauArray(array: unknown[], indent: number): string {
+  if (array.length === 0) {
+    return '{}';
+  }
+
+  const inner = '  '.repeat(indent + 1);
+  const close = '  '.repeat(indent);
+  const entries = array.map(
+    (item) => `${inner}${formatLuauValue(item, indent + 1)}`
+  );
+  return `{\n${entries.join(',\n')},\n${close}}`;
+}
+
+function formatLuauObject(
+  object: Record<string, unknown>,
+  indent: number
+): string {
+  const keys = Object.keys(object);
+  if (keys.length === 0) {
+    return '{}';
+  }
+
+  const inner = '  '.repeat(indent + 1);
+  const close = '  '.repeat(indent);
+  const entries = keys.map((key) => {
+    const formattedKey = isLuauIdentifier(key) ? key : `[${JSON.stringify(key)}]`;
+    const formattedValue = formatLuauValue(object[key], indent + 1);
+    return `${inner}${formattedKey} = ${formattedValue}`;
+  });
+  return `{\n${entries.join(',\n')},\n${close}}`;
+}
+
+function isLuauIdentifier(key: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) && !LUAU_RESERVED.has(key);
 }
