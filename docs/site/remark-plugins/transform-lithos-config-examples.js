@@ -1,5 +1,4 @@
 const {
-  parse: parseYaml,
   parseDocument,
   isMap,
   isSeq,
@@ -7,14 +6,6 @@ const {
   isPair,
 } = require('yaml');
 const { visit } = require('unist-util-visit');
-
-const PROJECT_CONFIG_KEYS = new Set([
-  'owner',
-  'payments',
-  'environments',
-  'target',
-  'state',
-]);
 
 // Reserved words that cannot be used as bare identifiers in Lua / Luau.
 const LUAU_RESERVED = new Set([
@@ -76,28 +67,22 @@ function shouldTransform(codeNode, mode) {
     return true;
   }
 
+  // In `project` mode we only transform YAML blocks that explicitly declare a
+  // `lithos.yml` (or `lithos.yaml`) filename. Snippets without a filename are
+  // treated as illustrative fragments and left untouched so JSON / Luau tabs
+  // don't show partial config shapes that the surrounding prose isn't talking
+  // about.
   const filename = extractFilenameFromMeta(codeNode.meta);
-  if (filename) {
-    const normalizedFilename = filename.toLowerCase().replace(/\\/g, '/');
-    if (isExcludedFilename(normalizedFilename)) {
-      return false;
-    }
-
-    if (isLithosConfigFilename(normalizedFilename)) {
-      return true;
-    }
-  }
-
-  try {
-    const parsed = parseYaml(codeNode.value);
-    if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
-      return false;
-    }
-
-    return Object.keys(parsed).some((key) => PROJECT_CONFIG_KEYS.has(key));
-  } catch {
+  if (!filename) {
     return false;
   }
+
+  const normalizedFilename = filename.toLowerCase().replace(/\\/g, '/');
+  if (isExcludedFilename(normalizedFilename)) {
+    return false;
+  }
+
+  return isLithosConfigFilename(normalizedFilename);
 }
 
 function isExcludedFilename(filename) {
