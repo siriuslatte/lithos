@@ -150,7 +150,7 @@ body:
     attributes:
       label: Lithos version
       description: Output of `lithos --version` if available.
-      placeholder: lithos 0.4.0
+      placeholder: lithos 0.4.0-beta.2
     validations:
       required: true
 
