@@ -1,5 +1,12 @@
 # lithos
 
+## 0.4.0-beta.2
+
+### Minor Changes
+
+- Luau / Lua project configs are now supported alongside YAML and JSON via a bundled Lune evaluator, with optional `on*` lifecycle hooks (starting with `onConfigLoaded`).
+- Docs site now renders every `lithos.yml` example as YAML / JSON / Luau tabs and translates line-highlight metadata across all three formats.
+
 ## 0.4.0
 
 ### Minor Changes
