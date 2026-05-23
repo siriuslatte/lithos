@@ -15,6 +15,7 @@ logger = { path = "../logger" }
 dotenv = "0.15.0"
 
 serde_yaml = { version = "0.8" }
+serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 clap = "2.33.0"
 glob = "0.3.0"
