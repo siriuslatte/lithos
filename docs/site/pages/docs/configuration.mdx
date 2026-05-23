@@ -236,6 +236,39 @@ for YAML files and add the snippet below to your settings:
 
 <SchemaVersionsList />
 
+### What about Luau and Lua?
+
+The JSON schema validates the *shape* of a Lithos config — string vs.
+number, required keys, allowed enum values. A Luau / Lua script is
+code, not data, so editors cannot apply the JSON schema to it the way
+they do to YAML or JSON.
+
+Validation still happens, just at a different point:
+
+1. Lune evaluates the script and returns a table.
+2. Lithos converts the table to JSON internally and validates it
+   against the same schema used for YAML and JSON.
+3. Any schema violation is reported with the offending config path and
+   the failing field, the same way YAML and JSON errors are reported.
+
+That means a `lithos.luau` file with a misspelled key or a wrong-typed
+value will fail at config-load time with a normal Lithos error — not
+silently produce a broken deploy.
+
+For editor support inside the `.luau` file itself, use
+[luau-lsp](https://github.com/JohnnyMorganz/luau-lsp) the same way you
+would for any other Lune script. It type-checks Luau syntax, function
+calls, and `require`d modules, but it does not know about the Lithos
+config shape — treat the returned table as a plain Luau table and rely
+on Lithos's runtime validation for shape errors.
+
+<Callout type="info">
+  If you want schema-driven autocomplete while authoring, write the
+  body of your config in `lithos.json` (or `lithos.yml`) and only reach
+  for `lithos.luau` when you need real logic — environment fan-out,
+  conditional branches, computed asset lists, or hooks.
+</Callout>
+
 ## Next steps
 
 <NextSteps items={[

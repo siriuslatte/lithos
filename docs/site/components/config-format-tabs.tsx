@@ -29,7 +29,10 @@ export function ConfigFormatTabs({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Tabs items={items.map((item) => item.props.label ?? 'Example')}>
+    <Tabs
+      items={items.map((item) => item.props.label ?? 'Example')}
+      storageKey="lithos-config-format"
+    >
       {items.map((item, index) => (
         <Tab key={index}>{item.props.children}</Tab>
       ))}
